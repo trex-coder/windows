@@ -33,8 +33,4 @@ jobs:
     - name: Create ngrok Tunnel
       run: .\ngrok\ngrok.exe tcp 3389
 
-    - name: Download Tor Browser
-      run: Invoke-WebRequest https://www.torproject.org/dist/torbrowser/12.0.2/torbrowser-install-win64-12.0.2_en-US.exe -OutFile torbrowser-install.exe
-
-    - name: Install Tor Browser
-      run: Start-Process torbrowser-install.exe -ArgumentList "/S" -Wait
+    
