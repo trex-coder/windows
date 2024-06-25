@@ -1,49 +1,42 @@
 name: CI
 
-
-
 on: [push, workflow_dispatch]
 
-
-
 jobs:
-
   build:
-
-
-
     runs-on: windows-latest
 
-
-
     steps:
-
-    - name: Download
-
+    - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
-    - name: Extract
-
+    - name: Extract ngrok
       run: Expand-Archive ngrok.zip
 
-    - name: Auth
-
+    - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-
       env:
-
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable TS
+    - name: Enable Terminal Services
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
 
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+    - name: Enable Remote Desktop Firewall Rule
+      run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - name: Configure RDP User Authentication
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - name: Set Local User Password
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+		
+  	- name: Download Tor Browser
+      run: Invoke-WebRequest https://www.torproject.org/dist/torbrowser/12.0.2/torbrowser-install-win64-12.0.2_en-US.exe -OutFile torbrowser-install.exe
 
-    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-
-    - name: Create Tunnel
-
+    - name: Install Tor Browser
+      run: Start-Process torbrowser-install.exe -ArgumentList "/S" -Wait
+  
+    - name: Create ngrok Tunnel
       run: .\ngrok\ngrok.exe tcp 3389
+
+    
