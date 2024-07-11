@@ -9,8 +9,8 @@ This project is only for educational purposes.
 Make sure to Modify the "Secrets & Variable> Actions > NGROK_AUTH_TOKEN 's value. Else you won't be able to obtain the IP address or endpoint address to the RDP
 
 ```bash
-RDP USERNAME: Trex
+RDP USERNAME: runneradmin
 ```
 
 ```bash
-Password : ENGLISHORSPANISH
+Password : P@ssw0rd!
