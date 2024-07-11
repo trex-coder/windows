@@ -8,5 +8,11 @@ https://github.com/trex-coder/rdp
 Avoid misusing the repository, i'm not responsible for any causes. 
 This project is only for educational purposes.
 
+Make sure to Modify the "Secrets & Variable> Actions > NGROK_AUTH_TOKEN 's value. Else you won't be able to obtain the IP address or endpoint address to the RDP
+
 ```bash
-click on the green button to clone
+RDP USERNAME: Trex
+```
+
+```bash
+Password : ENGLISHORSPANISH
