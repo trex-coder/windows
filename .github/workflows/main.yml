@@ -35,7 +35,8 @@ jobs:
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
         $endTime = (Get-Date).AddHours(7)
-        while ((Get-Date) -lt $endTime) {
+        $endpoint = ""
+        while ((Get-Date) -lt $endTime -and $endpoint -eq "") {
           try {
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
             $endpoint = $response.tunnels[0].public_url
@@ -45,4 +46,10 @@ jobs:
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
-        Write-Host "The 7-hour period has ended."
+        Write-Output "ngrok public URL: $endpoint" > endpoint.txt
+
+    - name: Shorten URL using TinyURL
+      run: |
+        $endpoint = Get-Content -Path endpoint.txt
+        $shortUrlResponse = Invoke-RestMethod -Uri "http://tinyurl.com/api-create.php?url=$endpoint"
+        Write-Host "Shortened URL: $shortUrlResponse"
