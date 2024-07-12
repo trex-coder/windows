@@ -11,7 +11,7 @@ jobs:
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
     - name: Extract ngrok
-      run: Expand-Archive ngrok.zip
+      run: Expand-Archive ngrok.zip -DestinationPath .
 
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
@@ -41,7 +41,7 @@ jobs:
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
             $endpoint = $response.tunnels[0].public_url
             Write-Output "ngrok public URL: $endpoint"
-            echo "NGROK_URL=$endpoint" >> $GITHUB_ENV
+            echo "NGROK_URL=$endpoint" >> $env:GITHUB_ENV
             break
           } catch {
             Write-Host "Failed to fetch ngrok endpoint."
