@@ -30,6 +30,16 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
+    - name: Download Chrome Remote Desktop
+      run: Invoke-WebRequest https://dl.google.com/chrome-remote-desktop/chromeremotedesktophost.msi -OutFile chromeremotedesktophost.msi
+
+    - name: Install Chrome Remote Desktop
+      run: msiexec /i chromeremotedesktophost.msi /quiet
+
+    - name: Start Chrome Remote Desktop Host
+      run: |
+        "%PROGRAMFILES(X86)%\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="4/0ATx3LY5PFx33GZDj-MWEfaVPyZT3HpP-Js8ZcGNdSyoqKTWxDgORBxCUd1MdQbN0JGf1Cw" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=%COMPUTERNAME%
+
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
