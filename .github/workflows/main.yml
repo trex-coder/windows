@@ -30,11 +30,10 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Create ngrok Tunnel
-      run: .\ngrok\ngrok.exe tcp 3389
-
-    - name: Fetch ngrok Endpoints
+    - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
+        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
+        Start-Sleep -Seconds 5 # Give ngrok a few seconds to start
         $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $endpoints = $response.tunnels.public_url
-        Write-Host "ngrok public URL: $endpoints"
+        $endpoint = $response.tunnels[0].public_url
+        Write-Host "ngrok public URL: $endpoint"
