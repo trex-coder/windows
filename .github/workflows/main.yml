@@ -49,10 +49,10 @@ jobs:
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
             
             # Obtain server IP address
-            $serverIp = ssh user@your_server_ip "curl -s http://whatismyip.akamai.com/"
+            $serverIp = (Invoke-RestMethod http://ifconfig.me).Trim()
 
             # Setup reverse proxy on the server
-            ssh user@$serverIp "sudo sed -i 's|proxy_pass http://.*|proxy_pass http://$endpoint;|' /etc/nginx/sites-available/default && sudo systemctl restart nginx"
+            ssh -o StrictHostKeyChecking=no -i /path/to/your/private_key user@$serverIp "sudo sed -i 's|proxy_pass http://.*|proxy_pass http://$endpoint;|' /etc/nginx/sites-available/default && sudo systemctl restart nginx"
           } catch {
             Write-Host "Failed to fetch ngrok endpoint or send to webhook."
           }
@@ -61,3 +61,4 @@ jobs:
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
