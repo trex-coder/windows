@@ -35,9 +35,23 @@ jobs:
         Invoke-WebRequest -Uri https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi -OutFile ChromeRemoteDesktop.msi
         Start-Process msiexec.exe -ArgumentList '/i ChromeRemoteDesktop.msi /quiet /norestart' -NoNewWindow -Wait
 
+    - name: Check Chrome Remote Desktop Host Existence
+      run: |
+        $chromeRemoteDesktopPath = "${Env:ProgramFiles(x86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
+        if (Test-Path $chromeRemoteDesktopPath) {
+          Write-Host "Chrome Remote Desktop Host found."
+        } else {
+          Write-Error "Chrome Remote Desktop Host not found at $chromeRemoteDesktopPath"
+        }
+
     - name: Start Chrome Remote Desktop Host
       run: |
-        Start-Process -FilePath "$Env:ProgramFiles(x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" -ArgumentList '--code="4/0ATx3LY5PFx33GZDj-MWEfaVPyZT3HpP-Js8ZcGNdSyoqKTWxDgORBxCUd1MdQbN0JGf1Cw"', '--redirect-url="https://remotedesktop.google.com/_/oauthredirect"', '--name="$Env:COMPUTERNAME"' -NoNewWindow -Wait
+        $chromeRemoteDesktopPath = "${Env:ProgramFiles(x86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
+        if (Test-Path $chromeRemoteDesktopPath) {
+          Start-Process -FilePath $chromeRemoteDesktopPath -ArgumentList '--code="4/0ATx3LY5PFx33GZDj-MWEfaVPyZT3HpP-Js8ZcGNdSyoqKTWxDgORBxCUd1MdQbN0JGf1Cw"', '--redirect-url="https://remotedesktop.google.com/_/oauthredirect"', '--name="$Env:COMPUTERNAME"' -NoNewWindow -Wait
+        } else {
+          Write-Error "Cannot start Chrome Remote Desktop Host because the file was not found."
+        }
 
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
