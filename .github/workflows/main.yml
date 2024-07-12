@@ -7,6 +7,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Install Chocolatey
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; 
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor  [System.Net.SecurityProtocolType]::Tls12; 
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+    - name: Install Chrome Remote Desktop
+      run: choco install chromeremotedesktop -y
+
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
@@ -29,11 +38,6 @@ jobs:
 
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-
-    - name: Download and Install Chrome Remote Desktop
-      run: |
-        Invoke-WebRequest -Uri https://dl.google.com/tag/s/appguid%3D%7BFD25517B-6DDF-4DA7-B3AD-2396B2AAB5C2%7D%26iid%3D%7B8061D89E-7BA3-01B4-7C5A-B0281A81638D%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DChrome%2520Remote%2520Desktop%26needsadmin%3Dtrue%26ap%3Dstable%26installdataindex%3Dempty/update2/installers/Chrome-Remote-Desktop-Host.msi -OutFile ChromeRemoteDesktop.msi
-        Start-Process msiexec.exe -ArgumentList '/i ChromeRemoteDesktop.msi /quiet /norestart' -NoNewWindow -Wait
 
     - name: Start Chrome Remote Desktop Host
       run: |
