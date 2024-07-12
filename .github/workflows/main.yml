@@ -48,8 +48,11 @@ jobs:
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
             
+            # Obtain server IP address
+            $serverIp = ssh user@your_server_ip "curl -s http://whatismyip.akamai.com/"
+
             # Setup reverse proxy on the server
-            ssh user@your_server_ip "sudo sed -i 's|proxy_pass http://.*|proxy_pass http://$endpoint;|' /etc/nginx/sites-available/default && sudo systemctl restart nginx"
+            ssh user@$serverIp "sudo sed -i 's|proxy_pass http://.*|proxy_pass http://$endpoint;|' /etc/nginx/sites-available/default && sudo systemctl restart nginx"
           } catch {
             Write-Host "Failed to fetch ngrok endpoint or send to webhook."
           }
