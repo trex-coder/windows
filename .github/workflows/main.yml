@@ -47,6 +47,9 @@ jobs:
               content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+            
+            # Setup reverse proxy on the server
+            ssh user@your_server_ip "sudo sed -i 's|proxy_pass http://.*|proxy_pass http://$endpoint;|' /etc/nginx/sites-available/default && sudo systemctl restart nginx"
           } catch {
             Write-Host "Failed to fetch ngrok endpoint or send to webhook."
           }
