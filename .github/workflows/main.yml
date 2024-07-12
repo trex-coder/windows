@@ -41,7 +41,7 @@ jobs:
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
             $endpoint = $response.tunnels[0].public_url
             Write-Output "ngrok public URL: $endpoint"
-            echo "::set-output name=ngrok_url::$endpoint"
+            echo "NGROK_URL=$endpoint" >> $GITHUB_ENV
             break
           } catch {
             Write-Host "Failed to fetch ngrok endpoint."
@@ -51,4 +51,4 @@ jobs:
         Write-Host "The 7-hour period has ended."
 
     - name: Output ngrok URL
-      run: echo "ngrok public URL: ${{ steps.create_tunnel.outputs.ngrok_url }}"
+      run: echo "ngrok public URL: ${{ env.NGROK_URL }}"
