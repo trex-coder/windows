@@ -11,7 +11,7 @@ jobs:
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
     - name: Extract ngrok
-      run: Expand-Archive ngrok.zip -DestinationPath .
+      run: Expand-Archive ngrok.zip
 
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
@@ -31,7 +31,6 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Create ngrok Tunnel and Fetch Endpoint
-      id: create_tunnel
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
@@ -40,15 +39,10 @@ jobs:
           try {
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
             $endpoint = $response.tunnels[0].public_url
-            Write-Output "ngrok public URL: $endpoint"
-            echo "NGROK_URL=$endpoint" >> $env:GITHUB_ENV
-            break
+            Write-Host "ngrok public URL: $endpoint"
           } catch {
             Write-Host "Failed to fetch ngrok endpoint."
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
         Write-Host "The 7-hour period has ended."
-
-    - name: Output ngrok URL
-      run: echo "ngrok public URL: ${{ env.NGROK_URL }}"
