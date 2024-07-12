@@ -31,6 +31,7 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Create ngrok Tunnel and Fetch Endpoint
+      id: create_tunnel
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
@@ -39,10 +40,15 @@ jobs:
           try {
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
             $endpoint = $response.tunnels[0].public_url
-            Write-Host "ngrok public URL: $endpoint"
+            Write-Output "ngrok public URL: $endpoint"
+            echo "::set-output name=ngrok_url::$endpoint"
+            break
           } catch {
             Write-Host "Failed to fetch ngrok endpoint."
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
         Write-Host "The 7-hour period has ended."
+
+    - name: Output ngrok URL
+      run: echo "ngrok public URL: ${{ steps.create_tunnel.outputs.ngrok_url }}"
