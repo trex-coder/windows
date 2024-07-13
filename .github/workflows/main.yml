@@ -30,28 +30,18 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Download and Install Chrome Remote Desktop
-      run: |
-        Invoke-WebRequest -Uri https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi -OutFile ChromeRemoteDesktop.msi
-        Start-Process msiexec.exe -ArgumentList '/i ChromeRemoteDesktop.msi /quiet /norestart' -NoNewWindow -Wait
+    - name: Download Reemo
+      run: Invoke-WebRequest https://reemo.io/download/reemo_installer.exe -OutFile reemo_installer.exe
 
-    - name: Check Chrome Remote Desktop Host Existence
-      run: |
-        $chromeRemoteDesktopPath = "${Env:ProgramFiles(x86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
-        if (Test-Path $chromeRemoteDesktopPath) {
-          Write-Host "Chrome Remote Desktop Host found."
-        } else {
-          Write-Error "Chrome Remote Desktop Host not found at $chromeRemoteDesktopPath"
-        }
+    - name: Install Reemo
+      run: Start-Process -Wait -FilePath reemo_installer.exe -ArgumentList "/silent"
 
-    - name: Start Chrome Remote Desktop Host
+    - name: Configure Reemo with Personal Key
       run: |
-        $chromeRemoteDesktopPath = "${Env:ProgramFiles(x86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
-        if (Test-Path $chromeRemoteDesktopPath) {
-          Start-Process -FilePath $chromeRemoteDesktopPath -ArgumentList '--code="4/0ATx3LY5PFx33GZDj-MWEfaVPyZT3HpP-Js8ZcGNdSyoqKTWxDgORBxCUd1MdQbN0JGf1Cw"', '--redirect-url="https://remotedesktop.google.com/_/oauthredirect"', '--name="$Env:COMPUTERNAME"' -NoNewWindow -Wait
-        } else {
-          Write-Error "Cannot start Chrome Remote Desktop Host because the file was not found."
-        }
+        $personalKey = $Env:REEMO_PERSONAL_KEY
+        & "C:\Program Files\Reemo\ReemoClient.exe" --register $personalKey
+      env:
+        REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
 
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
