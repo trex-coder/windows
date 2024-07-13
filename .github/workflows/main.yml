@@ -41,27 +41,16 @@ jobs:
           exit 1
         }
 
-    - name: Install Reemo
+    - name: Install Reemo using msiexec
       run: |
-        Write-Host "Starting Reemo installation..."
-        $process = Start-Process -FilePath reemo_installer.exe -ArgumentList "/silent /log reemo_install.log" -PassThru
-        $process.WaitForExit(600000) # Wait for up to 10 minutes
-        if ($process.HasExited) {
-          Write-Host "Reemo installation completed with exit code $($process.ExitCode)."
-        } else {
-          Write-Host "Reemo installation did not complete within the timeout period."
-          $process.Kill()
-          exit 1
-        }
-
-        # Check if the installer log exists
+        Write-Host "Starting Reemo installation using msiexec..."
+        Start-Process -Wait -NoNewWindow -FilePath msiexec.exe -ArgumentList "/i reemo_installer.exe /quiet /log reemo_install.log"
         if (Test-Path -Path reemo_install.log) {
           Write-Host "Reemo installation log:"
           Get-Content reemo_install.log | Write-Host
         } else {
           Write-Host "Reemo installation log not found."
         }
-      timeout-minutes: 10
 
     - name: Verify Reemo Installation
       run: |
