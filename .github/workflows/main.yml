@@ -30,6 +30,27 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
+    - name: Download Steam Installer
+      run: Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe -OutFile SteamSetup.exe
+
+    - name: Install Steam
+      run: .\SteamSetup.exe /SILENT
+
+    - name: Configure Auto Login Script
+      run: |
+        $steamLoginScript = @"
+        Add-Type -AssemblyName System.Web
+        $username = "gauravjackson"
+        $password = "Bluehouse079@@@"
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
+        $env:STEAM_LOGIN = $base64AuthInfo
+        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login $username $password"
+        "@
+        Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
+
+    - name: Execute Auto Login Script
+      run: powershell.exe -File C:\steam-login.ps1
+
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
@@ -55,24 +76,3 @@ jobs:
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-    - name: Download Steam Installer
-      run: Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe -OutFile SteamSetup.exe
-
-    - name: Install Steam
-      run: .\SteamSetup.exe /SILENT
-
-    - name: Configure Auto Login Script
-      run: |
-        $steamLoginScript = @"
-        Add-Type -AssemblyName System.Web
-        $username = "gauravjackson"
-        $password = "Bluehouse079@@@"
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
-        $env:STEAM_LOGIN = $base64AuthInfo
-        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login $username $password"
-        "@
-        Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
-
-    - name: Execute Auto Login Script
-      run: powershell.exe -File C:\steam-login.ps1
