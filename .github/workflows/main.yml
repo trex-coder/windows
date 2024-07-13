@@ -47,23 +47,6 @@ jobs:
               content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-
-            # Create HTML file with endpoint details
-            $htmlContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ngrok Endpoint</title>
-</head>
-<body>
-    <h1>ngrok public URL: $endpoint</h1>
-    <p>Random Code: $randomCode</p>
-</body>
-</html>
-"@
-            Set-Content -Path "endpoint.html" -Value $htmlContent -Force
-
-            break
           } catch {
             Write-Host "Failed to fetch ngrok endpoint or send to webhook."
           }
@@ -72,13 +55,3 @@ jobs:
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-    - name: Install Vercel CLI
-      run: npm install -g vercel
-
-    - name: Deploy to Vercel
-      run: |
-        vercel --token $Env:VERCEL_TOKEN --project $Env:VERCEL_PROJECT_ID --prod
-      env:
-        VERCEL_TOKEN: BOJQ5RZcGgocidy8V947VZPp
-        VERCEL_PROJECT_ID: prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6
