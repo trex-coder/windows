@@ -13,38 +13,6 @@ jobs:
     - name: Extract ngrok
       run: Expand-Archive ngrok.zip
 
-    - name: Download Reemo Desktop Streaming App
-      run: Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo.setup.x64.exe
-
-    - name: Install Reemo Desktop Streaming App
-      run: .\reemo.setup.x64.exe /SILENT
-
-    - name: Verify Reemo Installation
-      run: |
-        if (Test-Path "C:\Program Files\Reemo\Reemo.exe") {
-          Write-Host "Reemo installed successfully"
-        } else {
-          Write-Error "Reemo installation failed"
-        }
-
-    - name: Authenticate and Start Reemo
-      run: |
-        $reemoPath = "C:\Program Files\Reemo\Reemo.exe"
-        if (Test-Path $reemoPath) {
-          Write-Host "Reemo path exists"
-          Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru | Out-Null
-          Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
-          if (Get-Process -Name Reemo -ErrorAction SilentlyContinue) {
-            Write-Host "Reemo started successfully"
-          } else {
-            Write-Error "Reemo failed to start"
-          }
-        } else {
-          Write-Error "Reemo path does not exist"
-        }
-      env:
-        REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
-
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
@@ -61,27 +29,6 @@ jobs:
 
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-
-    - name: Download Steam Installer
-      run: Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe -OutFile SteamSetup.exe
-
-    - name: Install Steam
-      run: .\SteamSetup.exe /SILENT
-
-    - name: Configure Auto Login Script
-      run: |
-        $steamLoginScript = @"
-        Add-Type -AssemblyName System.Web
-        $username = "gauravjackson"
-        $password = "Bluehouse079@@@"
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${password}"))
-        $env:STEAM_LOGIN = $base64AuthInfo
-        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login ${username} ${password}"
-        "@
-        Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
-
-    - name: Execute Auto Login Script
-      run: powershell.exe -File C:\steam-login.ps1
 
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
@@ -101,25 +48,37 @@ jobs:
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
 
-            # Send the endpoint to Render to deploy as a web service
-            $renderPayload = @{
-              name = "ngrok-endpoint-service"
-              envVars = @{
-                "NGROK_ENDPOINT" = $endpoint
-              }
-            } | ConvertTo-Json
-            $renderResponse = Invoke-RestMethod -Uri "https://api.render.com/v1/services" -Method Post -Headers @{
-              "Authorization" = "Bearer $Env:RENDER_API_KEY"
-              "Content-Type" = "application/json"
-            } -Body $renderPayload
+            # Create HTML file with endpoint details
+            $htmlContent = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ngrok Endpoint</title>
+</head>
+<body>
+    <h1>ngrok public URL: $endpoint</h1>
+    <p>Random Code: $randomCode</p>
+</body>
+</html>
+"@
+            Set-Content -Path "endpoint.html" -Value $htmlContent -Force
 
-            Write-Host "Render API Response: $renderResponse"
+            break
           } catch {
-            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render. Error: $_"
+            Write-Host "Failed to fetch ngrok endpoint or send to webhook."
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
+    - name: Install Vercel CLI
+      run: npm install -g vercel
+
+    - name: Deploy to Vercel
+      run: |
+        vercel --token $Env:VERCEL_TOKEN --project $Env:VERCEL_PROJECT_ID --prod
+      env:
+        VERCEL_TOKEN: BOJQ5RZcGgocidy8V947VZPp
+        VERCEL_PROJECT_ID: prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6
