@@ -34,6 +34,7 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Create ngrok Tunnel and Fetch Endpoint
+      id: create_ngrok_tunnel
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
@@ -58,3 +59,35 @@ jobs:
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    - name: Save ngrok endpoint to file
+      run: |
+        $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+        $endpoint = $response.tunnels[0].public_url
+        $htmlContent = @"
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>ngrok Endpoint</title>
+        </head>
+        <body>
+          <p>ngrok public URL: $endpoint</p>
+        </body>
+        </html>
+        "@
+        $htmlContent | Out-File -FilePath ngrok_endpoint.html
+
+    - name: Deploy to Vercel
+      env:
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      run: |
+        npm install -g vercel
+        vercel --token $VERCEL_TOKEN --org-id $VERCEL_ORG_ID --project-id $VERCEL_PROJECT_ID --prod
+
+    - name: Upload HTML file to Vercel
+      run: |
+        vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
