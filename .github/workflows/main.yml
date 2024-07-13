@@ -35,16 +35,36 @@ jobs:
 
     - name: Install Reemo
       run: |
-        Start-Process -Wait -FilePath reemo_installer.exe -ArgumentList "/silent" -NoNewWindow -RedirectStandardOutput reemo_install.log -RedirectStandardError reemo_install_err.log
-        Start-Sleep -Seconds 10 # Give the installer a few seconds to start
-        if (!(Get-Process -Name "reemo_installer" -ErrorAction SilentlyContinue)) {
-          Write-Host "Reemo installation completed successfully."
+        Write-Host "Starting Reemo installation..."
+        Start-Job -ScriptBlock {
+          Start-Process -FilePath reemo_installer.exe -ArgumentList "/silent /log reemo_install.log" -NoNewWindow -Wait -PassThru
+        } | Wait-Job | Receive-Job
+
+        # Check if the installer log exists
+        if (Test-Path -Path reemo_install.log) {
+          Write-Host "Reemo installation log:"
+          Get-Content reemo_install.log | Write-Host
         } else {
-          Write-Host "Reemo installation is taking longer than expected. Check reemo_install.log and reemo_install_err.log for details."
-          Stop-Process -Name "reemo_installer" -Force
+          Write-Host "Reemo installation log not found."
+        }
+
+        # Check if the installer error log exists
+        if (Test-Path -Path reemo_install_err.log) {
+          Write-Host "Reemo installation error log:"
+          Get-Content reemo_install_err.log | Write-Host
+        } else {
+          Write-Host "Reemo installation error log not found."
+        }
+      timeout-minutes: 10
+
+    - name: Verify Reemo Installation
+      run: |
+        if (Test-Path "C:\Program Files\Reemo\ReemoClient.exe") {
+          Write-Host "Reemo installed successfully."
+        } else {
+          Write-Host "Reemo installation failed."
           exit 1
         }
-      timeout-minutes: 5
 
     - name: Configure Reemo with Personal Key
       run: |
