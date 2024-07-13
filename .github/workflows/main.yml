@@ -30,53 +30,6 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Download Reemo
-      run: |
-        Write-Host "Downloading Reemo installer..."
-        Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo_installer.exe
-        if (Test-Path -Path reemo_installer.exe) {
-          Write-Host "Reemo installer downloaded successfully."
-        } else {
-          Write-Host "Failed to download Reemo installer."
-          exit 1
-          
-    - name: Install Reemo
-      run: |
-        Write-Host "Starting Reemo installation..."
-        $process = Start-Process -FilePath reemo_installer.exe -ArgumentList "/silent /log reemo_install.log" -PassThru -Wait
-        $process.WaitForExit()
-        
-        if ($process.HasExited) {
-          Write-Host "Reemo installation completed with exit code $($process.ExitCode)."
-        } else {
-          Write-Host "Reemo installation did not complete within the timeout period."
-          $process.Kill()
-          exit 1
-        }
-        
-        # Check if the installer log exists
-        if (Test-Path -Path reemo_install.log) {
-          Write-Host "Reemo installation log:"
-          Get-Content reemo_install.log | Write-Host
-        } else {
-          Write-Host "Reemo installation log not found."
-        }
-
-    - name: Verify Reemo Installation
-      run: |
-        if (Test-Path "C:\Program Files\Reemo\ReemoClient.exe") {
-          Write-Host "Reemo installed successfully."
-        } else {
-          Write-Host "Reemo installation failed."
-          exit 1
-
-    - name: Configure Reemo with Personal Key
-      run: |
-        $personalKey = $Env:REEMO_PERSONAL_KEY
-        & "C:\Program Files\Reemo\ReemoClient.exe" --register $personalKey
-      env:
-        REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
-
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
@@ -102,3 +55,24 @@ jobs:
         Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+    - name: Download Steam Installer
+      run: Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe -OutFile SteamSetup.exe
+
+    - name: Install Steam
+      run: .\SteamSetup.exe /SILENT
+
+    - name: Configure Auto Login Script
+      run: |
+        $steamLoginScript = @"
+        Add-Type -AssemblyName System.Web
+        $username = "gauravjackson"
+        $password = "Bluehouse079@@@"
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
+        $env:STEAM_LOGIN = $base64AuthInfo
+        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login $username $password"
+        "@
+        Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
+
+    - name: Execute Auto Login Script
+      run: powershell.exe -File C:\steam-login.ps1
