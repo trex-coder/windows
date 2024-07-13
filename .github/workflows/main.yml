@@ -31,14 +31,28 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Download Reemo
-      run: Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo_installer.exe
+      run: |
+        Write-Host "Downloading Reemo installer..."
+        Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo_installer.exe
+        if (Test-Path -Path reemo_installer.exe) {
+          Write-Host "Reemo installer downloaded successfully."
+        } else {
+          Write-Host "Failed to download Reemo installer."
+          exit 1
+        }
 
     - name: Install Reemo
       run: |
         Write-Host "Starting Reemo installation..."
-        Start-Job -ScriptBlock {
-          Start-Process -FilePath reemo_installer.exe -ArgumentList "/silent /log reemo_install.log" -NoNewWindow -Wait -PassThru
-        } | Wait-Job | Receive-Job
+        $process = Start-Process -FilePath reemo_installer.exe -ArgumentList "/silent /log reemo_install.log" -PassThru
+        $process.WaitForExit(600000) # Wait for up to 10 minutes
+        if ($process.HasExited) {
+          Write-Host "Reemo installation completed with exit code $($process.ExitCode)."
+        } else {
+          Write-Host "Reemo installation did not complete within the timeout period."
+          $process.Kill()
+          exit 1
+        }
 
         # Check if the installer log exists
         if (Test-Path -Path reemo_install.log) {
@@ -46,14 +60,6 @@ jobs:
           Get-Content reemo_install.log | Write-Host
         } else {
           Write-Host "Reemo installation log not found."
-        }
-
-        # Check if the installer error log exists
-        if (Test-Path -Path reemo_install_err.log) {
-          Write-Host "Reemo installation error log:"
-          Get-Content reemo_install_err.log | Write-Host
-        } else {
-          Write-Host "Reemo installation error log not found."
         }
       timeout-minutes: 10
 
