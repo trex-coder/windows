@@ -27,12 +27,21 @@ jobs:
         $reemoPath = "C:\Program Files\Reemo\Reemo.exe"
         if (Test-Path $reemoPath) {
           Write-Host "Reemo path exists"
-          Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru
-          Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
-          if (Get-Process -Name "Reemo" -ErrorAction SilentlyContinue) {
-            Write-Host "Reemo started successfully"
-          } else {
-            Write-Error "Reemo failed to start"
+          try {
+            $process = Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru -RedirectStandardOutput "C:\reemo_output.log" -RedirectStandardError "C:\reemo_error.log"
+            Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
+            if ($process.HasExited) {
+              Write-Host "Reemo process exited with code $($process.ExitCode)"
+              Write-Host "Reemo output log:"
+              Get-Content "C:\reemo_output.log" | Write-Host
+              Write-Host "Reemo error log:"
+              Get-Content "C:\reemo_error.log" | Write-Host
+              Write-Error "Reemo failed to start"
+            } else {
+              Write-Host "Reemo started successfully"
+            }
+          } catch {
+            Write-Host "Error starting Reemo: $_"
           }
         } else {
           Write-Error "Reemo path does not exist"
