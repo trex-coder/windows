@@ -19,16 +19,12 @@ jobs:
     - name: Install Reemo Desktop Streaming App
       run: .\reemo.setup.x64.exe /SILENT
 
-    - name: Verify Installation Directory Contents
-      run: Get-ChildItem "C:\Program Files\Reemo"
-
     - name: Verify Reemo Installation
       run: |
         if (Test-Path "C:\Program Files\Reemo\Reemo.exe") {
           Write-Host "Reemo installed successfully"
         } else {
           Write-Error "Reemo installation failed"
-          Get-ChildItem "C:\Program Files\Reemo"
         }
 
     - name: Authenticate and Start Reemo
@@ -36,32 +32,12 @@ jobs:
         $reemoPath = "C:\Program Files\Reemo\Reemo.exe"
         if (Test-Path $reemoPath) {
           Write-Host "Reemo path exists"
-          try {
-            $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $startInfo.FileName = $reemoPath
-            $startInfo.Arguments = "--key $Env:REEMO_PERSONAL_KEY"
-            $startInfo.RedirectStandardOutput = $true
-            $startInfo.RedirectStandardError = $true
-            $startInfo.UseShellExecute = $false
-            $startInfo.CreateNoWindow = $true
-            $process = New-Object System.Diagnostics.Process
-            $process.StartInfo = $startInfo
-            $process.Start() | Out-Null
-            $process.WaitForExit()
-            $output = $process.StandardOutput.ReadToEnd()
-            $error = $process.StandardError.ReadToEnd()
-            Write-Host "Reemo process exited with code $($process.ExitCode)"
-            Write-Host "Reemo output log:"
-            Write-Host $output
-            Write-Host "Reemo error log:"
-            Write-Host $error
-            if ($process.ExitCode -ne 0) {
-              Write-Error "Reemo failed to start"
-            } else {
-              Write-Host "Reemo started successfully"
-            }
-          } catch {
-            Write-Host "Error starting Reemo: $_"
+          Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru | Out-Null
+          Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
+          if (Get-Process -Name Reemo -ErrorAction SilentlyContinue) {
+            Write-Host "Reemo started successfully"
+          } else {
+            Write-Error "Reemo failed to start"
           }
         } else {
           Write-Error "Reemo path does not exist"
