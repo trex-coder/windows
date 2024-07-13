@@ -31,7 +31,7 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Download Reemo
-      run: Invoke-WebRequest https://reemo.io/download/reemo_installer.exe -OutFile reemo_installer.exe
+      run: Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo_installer.exe
 
     - name: Install Reemo
       run: Start-Process -Wait -FilePath reemo_installer.exe -ArgumentList "/silent"
