@@ -24,12 +24,18 @@ jobs:
 
     - name: Authenticate and Start Reemo
       run: |
-        Start-Process -NoNewWindow -FilePath "C:\Program Files\Reemo\Reemo.exe" -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru
-        Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
-        if (Get-Process -Name "Reemo" -ErrorAction SilentlyContinue) {
-          Write-Host "Reemo started successfully"
+        $reemoPath = "C:\Program Files\Reemo\Reemo.exe"
+        if (Test-Path $reemoPath) {
+          Write-Host "Reemo path exists"
+          Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru
+          Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
+          if (Get-Process -Name "Reemo" -ErrorAction SilentlyContinue) {
+            Write-Host "Reemo started successfully"
+          } else {
+            Write-Error "Reemo failed to start"
+          }
         } else {
-          Write-Error "Reemo failed to start"
+          Write-Error "Reemo path does not exist"
         }
       env:
         REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
