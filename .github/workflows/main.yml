@@ -1,4 +1,4 @@
-name: Cl
+name: CI
 
 on: [push, workflow_dispatch]
 
@@ -33,32 +33,14 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Create ngrok Tunnel and Fetch Endpoint
-      id: create_ngrok_tunnel
+    - name: Create ngrok Tunnel
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-        $endTime = (Get-Date).AddHours(7)
-        $webhookUrl = $Env:DISCORD_WEBHOOK_URL
-        while ((Get-Date) -lt $endTime) {
-          try {
-            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            $endpoint = $response.tunnels[0].public_url
-            Write-Host "ngrok public URL: $endpoint"
-            $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
-            Write-Host "Random Code: $randomCode"
-            $payload = @{
-              content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
-            } | ConvertTo-Json
-            Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-          } catch {
-            Write-Host "Failed to fetch ngrok endpoint or send to webhook."
-          }
-          Start-Sleep -Seconds 60 # Wait for a minute before checking again
-        }
-        Write-Host "The 7-hour period has ended."
-      env:
-        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+        $endpoint = $response.tunnels[0].public_url
+        Write-Host "ngrok public URL: $endpoint"
+      id: create_ngrok_tunnel
 
     - name: Save ngrok endpoint to file
       run: |
@@ -89,5 +71,25 @@ jobs:
     - name: Upload HTML file to Vercel
       run: |
         vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm
+        $endTime = (Get-Date).AddHours(7)
+        $webhookUrl = $Env:DISCORD_WEBHOOK_URL
+        while ((Get-Date) -lt $endTime) {
+          try {
+            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+            $endpoint = $response.tunnels[0].public_url
+            Write-Host "ngrok public URL: $endpoint"
+            $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
+            Write-Host "Random Code: $randomCode"
+            $payload = @{
+              content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
+            } | ConvertTo-Json
+            Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+          } catch {
+            Write-Host "Failed to fetch ngrok endpoint or send to webhook."
+          }
+          Start-Sleep -Seconds 60 # Wait for a minute before checking again
+        }
+        Write-Host "The 7-hour period has ended."
       env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
