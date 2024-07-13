@@ -19,8 +19,17 @@ jobs:
     - name: Install Reemo Desktop Streaming App
       run: .\reemo.setup.x64.exe /SILENT
 
+    - name: Verify Installation Directory Contents
+      run: Get-ChildItem "C:\Program Files\Reemo"
+
     - name: Verify Reemo Installation
-      run: if (Test-Path "C:\Program Files\Reemo\Reemo.exe") { Write-Host "Reemo installed successfully" } else { Write-Error "Reemo installation failed" }
+      run: |
+        if (Test-Path "C:\Program Files\Reemo\Reemo.exe") {
+          Write-Host "Reemo installed successfully"
+        } else {
+          Write-Error "Reemo installation failed"
+          Get-ChildItem "C:\Program Files\Reemo"
+        }
 
     - name: Authenticate and Start Reemo
       run: |
