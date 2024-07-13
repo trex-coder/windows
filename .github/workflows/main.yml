@@ -42,9 +42,9 @@ jobs:
         Add-Type -AssemblyName System.Web
         $username = "gauravjackson"
         $password = "Bluehouse079@@@"
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${password}"))
         $env:STEAM_LOGIN = $base64AuthInfo
-        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login $username $password"
+        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login ${username} ${password}"
         "@
         Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
 
