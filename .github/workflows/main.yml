@@ -39,7 +39,7 @@ jobs:
         } else {
           Write-Host "Failed to download Reemo installer."
           exit 1
-
+          
     - name: Install Reemo
       run: |
         Write-Host "Starting Reemo installation..."
@@ -69,7 +69,6 @@ jobs:
         } else {
           Write-Host "Reemo installation failed."
           exit 1
-        }
 
     - name: Configure Reemo with Personal Key
       run: |
