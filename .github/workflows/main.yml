@@ -13,6 +13,12 @@ jobs:
     - name: Extract ngrok
       run: Expand-Archive ngrok.zip
 
+    - name: Download Reemo Desktop Streaming App
+      run: Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo.setup.x64.exe
+
+    - name: Install Reemo Desktop Streaming App
+      run: .\reemo.setup.x64.exe /SILENT
+
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
