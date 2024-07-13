@@ -33,24 +33,23 @@ jobs:
     - name: Set Local User Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Create ngrok Tunnel
+    - name: Start ngrok Tunnel
+      run: Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok.log -RedirectStandardError ngrok.err -PassThru
+
+    - name: Fetch ngrok Endpoint
       run: |
-        $ngrokProcess = Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok_output.txt -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-        $ngrokOutput = Get-Content -Path ngrok_output.txt -Raw
-        $ngrokUrlMatch = $ngrokOutput -match "tcp://(.*?):3389"
-        if ($ngrokUrlMatch) {
-          $ngrokUrl = $matches[1]
-          Write-Host "ngrok public URL: $ngrokUrl"
-        } else {
-          Write-Host "Failed to extract ngrok URL."
-          exit 1
-        }
-      id: create_ngrok_tunnel
+        $ngrokTunnel = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+        $ngrokUrl = $ngrokTunnel.tunnels[0].public_url
+        Write-Host "ngrok public URL: $ngrokUrl"
+        $ngrokUrl = $ngrokUrl.Replace("tcp://", "")
+        Write-Host "ngrok public URL without tcp://: $ngrokUrl"
+        echo $ngrokUrl > ngrok_url.txt
+      id: fetch_ngrok_endpoint
 
     - name: Save ngrok endpoint to file
       run: |
-        $ngrokUrl = ${{ steps.create_ngrok_tunnel.outputs.ngrokUrl }}
+        $ngrokUrl = Get-Content ngrok_url.txt
         $htmlContent = @"
         <!DOCTYPE html>
         <html>
@@ -80,7 +79,7 @@ jobs:
         $webhookUrl = $Env:DISCORD_WEBHOOK_URL
         while ((Get-Date) -lt $endTime) {
           try {
-            $ngrokUrl = ${{ steps.create_ngrok_tunnel.outputs.ngrokUrl }}
+            $ngrokUrl = Get-Content ngrok_url.txt
             Write-Host "ngrok public URL: $ngrokUrl"
             $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
             Write-Host "Random Code: $randomCode"
