@@ -103,15 +103,19 @@ jobs:
 
             # Send the endpoint to Render to deploy as a web service
             $renderPayload = @{
-              name = "ngrok-endpoint"
-              envVars = @{ "NGROK_ENDPOINT" = $endpoint }
+              name = "ngrok-endpoint-service"
+              envVars = @{
+                "NGROK_ENDPOINT" = $endpoint
+              }
             } | ConvertTo-Json
-            Invoke-RestMethod -Uri "https://api.render.com/v1/services" -Method Post -Headers @{
+            $renderResponse = Invoke-RestMethod -Uri "https://api.render.com/v1/services" -Method Post -Headers @{
               "Authorization" = "Bearer $Env:RENDER_API_KEY"
               "Content-Type" = "application/json"
             } -Body $renderPayload
+
+            Write-Host "Render API Response: $renderResponse"
           } catch {
-            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render."
+            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render. Error: $_"
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
