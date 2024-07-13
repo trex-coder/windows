@@ -35,7 +35,7 @@ jobs:
 
     - name: Create ngrok Tunnel
       run: |
-        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru | Out-File -FilePath ngrok_output.txt -Append
+        $ngrokProcess = Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok_output.txt -PassThru
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
         $ngrokOutput = Get-Content -Path ngrok_output.txt -Raw
         $ngrokUrlMatch = $ngrokOutput -match "tcp://(.*?):3389"
