@@ -19,6 +19,13 @@ jobs:
     - name: Install Reemo Desktop Streaming App
       run: .\reemo.setup.x64.exe /SILENT
 
+    - name: Authenticate and Start Reemo
+      run: |
+        Start-Process -NoNewWindow -FilePath "C:\Program Files\Reemo\Reemo.exe" -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru
+        Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
+      env:
+        REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
+
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
