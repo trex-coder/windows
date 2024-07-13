@@ -7,6 +7,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Run a one-liner script
+      run: echo "Workflow is running"
+
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
