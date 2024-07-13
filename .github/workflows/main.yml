@@ -35,28 +35,22 @@ jobs:
 
     - name: Create ngrok Tunnel
       run: |
-        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
+        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru | Out-File -FilePath ngrok_output.txt -Append
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-        $endTime = (Get-Date).AddMinutes(2)
-        while ((Get-Date) -lt $endTime) {
-          try {
-            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            if ($response.tunnels) {
-              $endpoint = $response.tunnels[0].public_url
-              Write-Host "ngrok public URL: $endpoint"
-              break
-            }
-          } catch {
-            Write-Host "ngrok is not ready yet."
-          }
-          Start-Sleep -Seconds 5
+        $ngrokOutput = Get-Content -Path ngrok_output.txt -Raw
+        $ngrokUrlMatch = $ngrokOutput -match "tcp://(.*?):3389"
+        if ($ngrokUrlMatch) {
+          $ngrokUrl = $matches[1]
+          Write-Host "ngrok public URL: $ngrokUrl"
+        } else {
+          Write-Host "Failed to extract ngrok URL."
+          exit 1
         }
       id: create_ngrok_tunnel
 
     - name: Save ngrok endpoint to file
       run: |
-        $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $endpoint = $response.tunnels[0].public_url
+        $ngrokUrl = ${{ steps.create_ngrok_tunnel.outputs.ngrokUrl }}
         $htmlContent = @"
         <!DOCTYPE html>
         <html>
@@ -64,7 +58,7 @@ jobs:
           <title>ngrok Endpoint</title>
         </head>
         <body>
-          <p>ngrok public URL: $endpoint</p>
+          <p>ngrok public URL: $ngrokUrl</p>
         </body>
         </html>
         "@
@@ -86,13 +80,12 @@ jobs:
         $webhookUrl = $Env:DISCORD_WEBHOOK_URL
         while ((Get-Date) -lt $endTime) {
           try {
-            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            $endpoint = $response.tunnels[0].public_url
-            Write-Host "ngrok public URL: $endpoint"
+            $ngrokUrl = ${{ steps.create_ngrok_tunnel.outputs.ngrokUrl }}
+            Write-Host "ngrok public URL: $ngrokUrl"
             $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
             Write-Host "Random Code: $randomCode"
             $payload = @{
-              content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
+              content = "ngrok public URL: $ngrokUrl`nRandom Code: $randomCode"
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
           } catch {
