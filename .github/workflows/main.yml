@@ -34,32 +34,21 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Start ngrok Tunnel
-      run: Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok.log -RedirectStandardError ngrok.err -PassThru
+      run: Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok_output.log -RedirectStandardError ngrok_error.log -PassThru
 
-    - name: Fetch ngrok Endpoint
+    - name: Fetch ngrok Endpoint from Logs
       run: |
-        $maxRetries = 10
-        $retryCount = 0
-        $ngrokUrl = ""
-        while ($retryCount -lt $maxRetries -and $ngrokUrl -eq "") {
-          Start-Sleep -Seconds 10
-          try {
-            $ngrokTunnel = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            $ngrokUrl = $ngrokTunnel.tunnels[0].public_url
-          } catch {
-            Write-Host "ngrok API not available yet. Retrying..."
-          }
-          $retryCount++
-        }
-        if ($ngrokUrl -eq "") {
-          Write-Host "Failed to retrieve ngrok URL after $maxRetries attempts."
+        Start-Sleep -Seconds 15 # Give ngrok enough time to start and print the URL
+        $ngrokOutput = Get-Content ngrok_output.log
+        $ngrokUrl = $ngrokOutput | Select-String -Pattern "tcp://.*" | ForEach-Object { $_.Matches[0].Value }
+        if (-not $ngrokUrl) {
+          Write-Host "Failed to retrieve ngrok URL from logs."
           exit 1
-        } else {
-          Write-Host "ngrok public URL: $ngrokUrl"
-          $ngrokUrl = $ngrokUrl.Replace("tcp://", "")
-          Write-Host "ngrok public URL without tcp://: $ngrokUrl"
-          echo $ngrokUrl > ngrok_url.txt
         }
+        Write-Host "ngrok public URL: $ngrokUrl"
+        $ngrokUrl = $ngrokUrl.Replace("tcp://", "")
+        Write-Host "ngrok public URL without tcp://: $ngrokUrl"
+        echo $ngrokUrl > ngrok_url.txt
       id: fetch_ngrok_endpoint
 
     - name: Save ngrok endpoint to file
