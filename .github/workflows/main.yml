@@ -38,13 +38,28 @@ jobs:
 
     - name: Fetch ngrok Endpoint
       run: |
-        Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-        $ngrokTunnel = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-        $ngrokUrl = $ngrokTunnel.tunnels[0].public_url
-        Write-Host "ngrok public URL: $ngrokUrl"
-        $ngrokUrl = $ngrokUrl.Replace("tcp://", "")
-        Write-Host "ngrok public URL without tcp://: $ngrokUrl"
-        echo $ngrokUrl > ngrok_url.txt
+        $maxRetries = 10
+        $retryCount = 0
+        $ngrokUrl = ""
+        while ($retryCount -lt $maxRetries -and $ngrokUrl -eq "") {
+          Start-Sleep -Seconds 10
+          try {
+            $ngrokTunnel = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+            $ngrokUrl = $ngrokTunnel.tunnels[0].public_url
+          } catch {
+            Write-Host "ngrok API not available yet. Retrying..."
+          }
+          $retryCount++
+        }
+        if ($ngrokUrl -eq "") {
+          Write-Host "Failed to retrieve ngrok URL after $maxRetries attempts."
+          exit 1
+        } else {
+          Write-Host "ngrok public URL: $ngrokUrl"
+          $ngrokUrl = $ngrokUrl.Replace("tcp://", "")
+          Write-Host "ngrok public URL without tcp://: $ngrokUrl"
+          echo $ngrokUrl > ngrok_url.txt
+        }
       id: fetch_ngrok_endpoint
 
     - name: Save ngrok endpoint to file
