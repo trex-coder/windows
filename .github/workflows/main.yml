@@ -99,10 +99,10 @@ jobs:
             } -Body $renderPayload
             # Send the endpoint to Vercel
             $vercelPayload = @{
+              target = "production"
               type = "encrypted"
               key = "NGROK_ENDPOINT"
               value = $endpoint
-              target = @("production")
             } | ConvertTo-Json
             Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6/env" -Method Post -Headers @{
               "Authorization" = "Bearer Wc9ywyOE8ZL8CwWnRsz6CCuw"
