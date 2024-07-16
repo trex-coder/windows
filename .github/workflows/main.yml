@@ -98,8 +98,20 @@ jobs:
               "Content-Type" = "application/json"
             } -Body $renderPayload
             Write-Host "Render API Response: $renderResponse"
+            # Send the endpoint to Vercel
+            $vercelPayload = @{
+              name = "ngrok-endpoint"
+              env = @{
+                "NGROK_ENDPOINT" = $endpoint
+              }
+            } | ConvertTo-Json
+            $vercelResponse = Invoke-RestMethod -Uri "https://api.vercel.com/v1/projects/prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6/env" -Method Post -Headers @{
+              "Authorization" = "Bearer Wc9ywyOE8ZL8CwWnRsz6CCuw"
+              "Content-Type" = "application/json"
+            } -Body $vercelPayload
+            Write-Host "Vercel API Response: $vercelResponse"
           } catch {
-            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render. Error: $_"
+            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render/Vercel. Error: $_"
           }
           Start-Sleep -Seconds 60 # Wait for a minute before checking again
         }
