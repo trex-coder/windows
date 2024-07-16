@@ -73,7 +73,7 @@ jobs:
       run: Invoke-WebRequest "https://www.lo4d.com/get-file/microsoft-office-2007/01833cc1246e44154f61974aec69b714/" -OutFile C:\office2007.exe
 
     - name: Install Microsoft Office 2007
-      run: .\office2007.exe /quiet /norestart
+      run: C:\office2007.exe /quiet /norestart
 
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
