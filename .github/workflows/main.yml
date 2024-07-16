@@ -69,26 +69,6 @@ jobs:
         "@
         [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
 
-    - name: Download Microsoft Office 2007 Installer
-      run: |
-        $officeInstallerUrl = "https://www.lo4d.com/get-file/microsoft-office-2007/01833cc1246e44154f61974aec69b714/"
-        $outputPath = "C:\office2007.exe"
-        Invoke-WebRequest $officeInstallerUrl -OutFile $outputPath
-        if (Test-Path $outputPath) {
-          Write-Host "Office 2007 installer downloaded successfully."
-        } else {
-          Write-Error "Failed to download Office 2007 installer."
-        }
-
-    - name: Install Microsoft Office 2007
-      run: |
-        $installerPath = "C:\office2007.exe"
-        if (Test-Path $installerPath) {
-          Start-Process -FilePath $installerPath -ArgumentList "/quiet /norestart" -Wait -NoNewWindow -ErrorAction Stop
-        } else {
-          Write-Error "Office 2007 installer not found at $installerPath."
-        }
-
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
