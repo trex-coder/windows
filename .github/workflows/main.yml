@@ -14,10 +14,10 @@ jobs:
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
     - name: Extract ngrok
-      run: Expand-Archive ngrok.zip
+      run: Expand-Archive ngrok.zip -DestinationPath .
 
     - name: Authenticate ngrok
-      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+      run: .\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
@@ -34,11 +34,11 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Start ngrok Tunnel
-      run: Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok_output.log -RedirectStandardError ngrok_error.log -PassThru
+      run: Start-Process -NoNewWindow -FilePath .\ngrok.exe -ArgumentList "tcp 3389" -RedirectStandardOutput ngrok_output.log -RedirectStandardError ngrok_error.log -PassThru
 
     - name: Fetch ngrok Endpoint from Logs
       run: |
-        Start-Sleep -Seconds 15 # Give ngrok enough time to start and print the URL
+        Start-Sleep -Seconds 30 # Give ngrok enough time to start and print the URL
         $ngrokOutput = Get-Content ngrok_output.log
         $ngrokUrl = $ngrokOutput | Select-String -Pattern "tcp://.*" | ForEach-Object { $_.Matches[0].Value }
         if (-not $ngrokUrl) {
