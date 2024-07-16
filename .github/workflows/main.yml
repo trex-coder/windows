@@ -75,6 +75,8 @@ jobs:
         Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
         $endTime = (Get-Date).AddHours(7)
         $webhookUrl = $Env:DISCORD_WEBHOOK_URL
+        $vercelToken = "Wc9ywyOE8ZL8CwWnRsz6CCuw"
+        $projectId = "prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6"
         while ((Get-Date) -lt $endTime) {
           try {
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
@@ -82,33 +84,24 @@ jobs:
             Write-Host "ngrok public URL: $endpoint"
             $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
             Write-Host "Random Code: $randomCode"
+            
+            # Send to Discord webhook
             $payload = @{
               content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
             } | ConvertTo-Json
             Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-            # Send the endpoint to Render to deploy as a web service
-            $renderPayload = @{
-              name = "ngrok-endpoint-service"
-              envVars = @{
-                "NGROK_ENDPOINT" = $endpoint
-              }
-            } | ConvertTo-Json
-            Invoke-RestMethod -Uri "https://api.render.com/v1/services" -Method Post -Headers @{
-              "Authorization" = "Bearer $Env:RENDER_API_KEY"
-              "Content-Type" = "application/json"
-            } -Body $renderPayload
-            # Send the endpoint to Vercel
+            
+            # Send to Vercel API
             $vercelPayload = @{
-              target = "production"
-              type = "encrypted"
-              key = "NGROK_ENDPOINT"
-              value = "$endpoint"
+              "key" = "NGROK_ENDPOINT"
+              "value" = $endpoint
+              "type" = "plain"
             } | ConvertTo-Json
-            Write-Host "Vercel Payload: $vercelPayload" # Log the payload
-            Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6/env" -Method Post -Headers @{
-              "Authorization" = "Bearer Wc9ywyOE8ZL8CwWnRsz6CCuw"
+            Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/$projectId/env" -Method Post -Headers @{
+              "Authorization" = "Bearer $vercelToken"
               "Content-Type" = "application/json"
             } -Body $vercelPayload
+
           } catch {
             Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render/Vercel. Error: $_"
           }
