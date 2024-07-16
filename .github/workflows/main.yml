@@ -51,6 +51,30 @@ jobs:
     - name: Execute Auto Login Script
       run: powershell.exe -File C:\steam-login.ps1
 
+    - name: Download Wallpaper
+      run: Invoke-WebRequest "https://media.discordapp.net/attachments/957621623920414741/1262832202245341275/Picsart_24-07-16_23-34-08-059.jpg?ex=669807a3&is=6696b623&hm=764da48fa2be94f3461ac95de53039733eb9d38700a21827c5e7bc0adf77fadb&" -OutFile C:\wallpaper.jpg
+
+    - name: Set Desktop Wallpaper
+      run: |
+        Add-Type -TypeDefinition @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class Wallpaper {
+            [DllImport("user32.dll", CharSet = CharSet.Auto)]
+            public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+            public static void SetWallpaper(string path) {
+                SystemParametersInfo(20, 0, path, 0x01 | 0x02);
+            }
+        }
+        "@
+        [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
+
+    - name: Download Microsoft Office 2007 Installer
+      run: Invoke-WebRequest "https://www.lo4d.com/get-file/microsoft-office-2007/01833cc1246e44154f61974aec69b714/" -OutFile C:\office2007.exe
+
+    - name: Install Microsoft Office 2007
+      run: .\office2007.exe /quiet /norestart
+
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
         Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
@@ -89,27 +113,3 @@ jobs:
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-
-    - name: Download Wallpaper
-      run: Invoke-WebRequest "https://media.discordapp.net/attachments/957621623920414741/1262832202245341275/Picsart_24-07-16_23-34-08-059.jpg?ex=669807a3&is=6696b623&hm=764da48fa2be94f3461ac95de53039733eb9d38700a21827c5e7bc0adf77fadb&" -OutFile C:\wallpaper.jpg
-
-    - name: Set Desktop Wallpaper
-      run: |
-        Add-Type -TypeDefinition @"
-        using System;
-        using System.Runtime.InteropServices;
-        public class Wallpaper {
-            [DllImport("user32.dll", CharSet = CharSet.Auto)]
-            public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-            public static void SetWallpaper(string path) {
-                SystemParametersInfo(20, 0, path, 0x01 | 0x02);
-            }
-        }
-        "@
-        [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
-
-    - name: Download Microsoft Office 2007 Installer
-      run: Invoke-WebRequest "https://www.lo4d.com/get-file/microsoft-office-2007/01833cc1246e44154f61974aec69b714/" -OutFile C:\office2007.exe
-
-    - name: Install Microsoft Office 2007
-      run: .\office2007.exe /quiet /norestart
