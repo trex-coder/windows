@@ -13,38 +13,6 @@ jobs:
     - name: Extract ngrok
       run: Expand-Archive ngrok.zip
 
-    - name: Download Reemo Desktop Streaming App
-      run: Invoke-WebRequest https://download.reemo.io/reemo.setup.x64.exe -OutFile reemo.setup.x64.exe
-
-    - name: Install Reemo Desktop Streaming App
-      run: .\reemo.setup.x64.exe /SILENT
-
-    - name: Verify Reemo Installation
-      run: |
-        if (Test-Path "C:\Program Files\Reemo\Reemo.exe") {
-          Write-Host "Reemo installed successfully"
-        } else {
-          Write-Error "Reemo installation failed"
-        }
-
-    - name: Authenticate and Start Reemo
-      run: |
-        $reemoPath = "C:\Program Files\Reemo\Reemo.exe"
-        if (Test-Path $reemoPath) {
-          Write-Host "Reemo path exists"
-          Start-Process -NoNewWindow -FilePath $reemoPath -ArgumentList "--key $Env:REEMO_PERSONAL_KEY" -PassThru | Out-Null
-          Start-Sleep -Seconds 10 # Give Reemo a few seconds to start
-          if (Get-Process -Name Reemo -ErrorAction SilentlyContinue) {
-            Write-Host "Reemo started successfully"
-          } else {
-            Write-Error "Reemo failed to start"
-          }
-        } else {
-          Write-Error "Reemo path does not exist"
-        }
-      env:
-        REEMO_PERSONAL_KEY: ${{ secrets.REEMO_PERSONAL_KEY }}
-
     - name: Authenticate ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
@@ -139,3 +107,9 @@ jobs:
         }
         "@
         [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
+
+    - name: Download Microsoft Office 2007 Installer
+      run: Invoke-WebRequest "https://www.lo4d.com/get-file/microsoft-office-2007/01833cc1246e44154f61974aec69b714/" -OutFile C:\office2007.exe
+
+    - name: Install Microsoft Office 2007
+      run: .\office2007.exe /quiet /norestart
