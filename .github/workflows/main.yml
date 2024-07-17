@@ -4,7 +4,7 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: windows-2022 # Using windows-2022 as it supports Windows 11
+    runs-on: windows-2022
 
     steps:
     - name: Check Windows Version
@@ -13,11 +13,15 @@ jobs:
         Write-Host "Current Windows Version: $windowsVersion"
         if ($windowsVersion -notmatch "Windows 11") {
           Write-Host "Updating to Windows 11..."
-          # Update logic here (if any specific script/command is required, add it here)
+          # Download Windows 11 Upgrade Assistant
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2171764" -OutFile "Windows11Upgrade.exe"
+          # Run Upgrade Assistant
+          Start-Process -FilePath "Windows11Upgrade.exe" -ArgumentList "/quietinstall /skipEULA" -Wait
         } else {
           Write-Host "Already on Windows 11"
         }
 
+    # Rest of your steps...
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
