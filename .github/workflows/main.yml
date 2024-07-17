@@ -4,9 +4,20 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022 # Using windows-2022 as it supports Windows 11
 
     steps:
+    - name: Check Windows Version
+      run: |
+        $windowsVersion = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName
+        Write-Host "Current Windows Version: $windowsVersion"
+        if ($windowsVersion -notmatch "Windows 11") {
+          Write-Host "Updating to Windows 11..."
+          # Update logic here (if any specific script/command is required, add it here)
+        } else {
+          Write-Host "Already on Windows 11"
+        }
+
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
@@ -69,58 +80,45 @@ jobs:
         "@
         [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
 
-    - name: Cache ngrok session data
-      id: cache-ngrok
-      uses: actions/cache@v3
-      with:
-        path: ngrok-session.json
-        key: ${{ runner.os }}-ngrok-session-${{ github.run_id }}
-
     - name: Create ngrok Tunnel and Fetch Endpoint
       run: |
-        $sessionPath = "ngrok-session.json"
-        if (Test-Path $sessionPath) {
-          $sessionData = Get-Content -Path $sessionPath | ConvertFrom-Json
-          $endpoint = $sessionData.endpoint
-          $randomCode = $sessionData.randomCode
-          Write-Host "Restored ngrok public URL: $endpoint"
-          Write-Host "Restored Random Code: $randomCode"
-        } else {
-          Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
-          Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-          $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-          $endpoint = $response.tunnels[0].public_url
-          Write-Host "ngrok public URL: $endpoint"
-          $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
-          Write-Host "Random Code: $randomCode"
-          $sessionData = @{
-            endpoint = $endpoint
-            randomCode = $randomCode
-          } | ConvertTo-Json
-          $sessionData | Set-Content -Path $sessionPath
-        }
-
+        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
+        Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
+        $endTime = (Get-Date).AddHours(7)
         $webhookUrl = $Env:DISCORD_WEBHOOK_URL
         $vercelToken = "Wc9ywyOE8ZL8CwWnRsz6CCuw"
         $projectId = "prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6"
+        while ((Get-Date) -lt $endTime) {
+          try {
+            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
+            $endpoint = $response.tunnels[0].public_url
+            Write-Host "ngrok public URL: $endpoint"
+            $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
+            Write-Host "Random Code: $randomCode"
+            
+            # Send to Discord webhook
+            $payload = @{
+              content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
+            } | ConvertTo-Json
+            Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
+            
+            # Send to Vercel API
+            $vercelPayload = @{
+              "key" = "NGROK_ENDPOINT"
+              "value" = $endpoint
+              "type" = "plain"
+            } | ConvertTo-Json
+            Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/$projectId/env" -Method Post -Headers @{
+              "Authorization" = "Bearer $vercelToken"
+              "Content-Type" = "application/json"
+            } -Body $vercelPayload
 
-        # Send to Discord webhook
-        $payload = @{
-          content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
-        } | ConvertTo-Json
-        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-        
-        # Send to Vercel API
-        $vercelPayload = @{
-          "key" = "NGROK_ENDPOINT"
-          "value" = $endpoint
-          "type" = "plain"
-        } | ConvertTo-Json
-        Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/$projectId/env" -Method Post -Headers @{
-          "Authorization" = "Bearer $vercelToken"
-          "Content-Type" = "application/json"
-        } -Body $vercelPayload
-
+          } catch {
+            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render/Vercel. Error: $_"
+          }
+          Start-Sleep -Seconds 60 # Wait for a minute before checking again
+        }
+        Write-Host "The 7-hour period has ended."
       env:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
