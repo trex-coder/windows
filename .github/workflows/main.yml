@@ -1,128 +1,49 @@
 name: CI
 
+
+
 on: [push, workflow_dispatch]
 
+
+
 jobs:
+
   build:
-    runs-on: windows-2022
+
+
+
+    runs-on: windows-latest
+
+
 
     steps:
-    - name: Check Windows Version
-      run: |
-        $windowsVersion = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName
-        Write-Host "Current Windows Version: $windowsVersion"
-        if ($windowsVersion -notmatch "Windows 11") {
-          Write-Host "Updating to Windows 11..."
-          # Download Windows 11 Upgrade Assistant
-          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2171764" -OutFile "Windows11Upgrade.exe"
-          # Run Upgrade Assistant
-          Start-Process -FilePath "Windows11Upgrade.exe" -ArgumentList "/quietinstall /skipEULA" -Wait
-        } else {
-          Write-Host "Already on Windows 11"
-        }
 
-    # Rest of your steps...
-    - name: Download ngrok
+    - name: Download
+
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
-    - name: Extract ngrok
+    - name: Extract
+
       run: Expand-Archive ngrok.zip
 
-    - name: Authenticate ngrok
+    - name: Auth
+
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+
       env:
+
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable Terminal Services
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+    - name: Enable TS
 
-    - name: Enable Remote Desktop Firewall Rule
-      run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
 
-    - name: Configure RDP User Authentication
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Set Local User Password
-      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-    - name: Download Steam Installer
-      run: Invoke-WebRequest https://steamcdn-a.akamaihd.net/client/installer/SteamSetup.exe -OutFile SteamSetup.exe
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install Steam
-      run: .\SteamSetup.exe /SILENT
+    - name: Create Tunnel
 
-    - name: Configure Auto Login Script
-      run: |
-        $steamLoginScript = @"
-        Add-Type -AssemblyName System.Web
-        $username = "gauravjackson"
-        $password = "Bluehouse079@@@"
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${password}"))
-        $env:STEAM_LOGIN = $base64AuthInfo
-        Start-Process -FilePath "C:\Program Files (x86)\Steam\Steam.exe" -ArgumentList "-login ${username} ${password}"
-        "@
-        Set-Content -Path "C:\steam-login.ps1" -Value $steamLoginScript
-
-    - name: Execute Auto Login Script
-      run: powershell.exe -File C:\steam-login.ps1
-
-    - name: Download Wallpaper
-      run: Invoke-WebRequest "https://media.discordapp.net/attachments/957621623920414741/1262832202245341275/Picsart_24-07-16_23-34-08-059.jpg?ex=669807a3&is=6696b623&hm=764da48fa2be94f3461ac95de53039733eb9d38700a21827c5e7bc0adf77fadb&" -OutFile C:\wallpaper.jpg
-
-    - name: Set Desktop Wallpaper
-      run: |
-        Add-Type -TypeDefinition @"
-        using System;
-        using System.Runtime.InteropServices;
-        public class Wallpaper {
-            [DllImport("user32.dll", CharSet = CharSet.Auto)]
-            public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-            public static void SetWallpaper(string path) {
-                SystemParametersInfo(20, 0, path, 0x01 | 0x02);
-            }
-        }
-        "@
-        [Wallpaper]::SetWallpaper("C:\wallpaper.jpg")
-
-    - name: Create ngrok Tunnel and Fetch Endpoint
-      run: |
-        Start-Process -NoNewWindow -FilePath .\ngrok\ngrok.exe -ArgumentList "tcp 3389" -PassThru
-        Start-Sleep -Seconds 10 # Give ngrok a few seconds to start
-        $endTime = (Get-Date).AddHours(7)
-        $webhookUrl = $Env:DISCORD_WEBHOOK_URL
-        $vercelToken = "Wc9ywyOE8ZL8CwWnRsz6CCuw"
-        $projectId = "prj_tEMnvbenIbFXHcQmO0ekIkj4o2L6"
-        while ((Get-Date) -lt $endTime) {
-          try {
-            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            $endpoint = $response.tunnels[0].public_url
-            Write-Host "ngrok public URL: $endpoint"
-            $randomCode = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 9 | % {[char]$_})
-            Write-Host "Random Code: $randomCode"
-            
-            # Send to Discord webhook
-            $payload = @{
-              content = "ngrok public URL: $endpoint`nRandom Code: $randomCode"
-            } | ConvertTo-Json
-            Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $payload -ContentType 'application/json'
-            
-            # Send to Vercel API
-            $vercelPayload = @{
-              "key" = "NGROK_ENDPOINT"
-              "value" = $endpoint
-              "type" = "plain"
-            } | ConvertTo-Json
-            Invoke-RestMethod -Uri "https://api.vercel.com/v8/projects/$projectId/env" -Method Post -Headers @{
-              "Authorization" = "Bearer $vercelToken"
-              "Content-Type" = "application/json"
-            } -Body $vercelPayload
-
-          } catch {
-            Write-Host "Failed to fetch ngrok endpoint or send to webhook/Render/Vercel. Error: $_"
-          }
-          Start-Sleep -Seconds 60 # Wait for a minute before checking again
-        }
-        Write-Host "The 7-hour period has ended."
-      env:
-        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      run: .\ngrok\ngrok.exe tcp 3389
