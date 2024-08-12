@@ -7,20 +7,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install LXDE and dependencies
+    - name: Install LXDE, XRDP, and VNC Server
       run: |
         sudo apt-get update
-        sudo apt-get install -y lxde lxde-core lxterminal xrdp
+        sudo apt-get install -y lxde lxde-core lxterminal xrdp tightvncserver
         sudo systemctl enable xrdp
         sudo adduser xrdp ssl-cert
 
-    - name: Set LXDE as default session for xrdp
+    - name: Configure VNC Server
+      run: |
+        mkdir -p ~/.vnc
+        echo "P@ssw0rd!" | vncpasswd -f > ~/.vnc/passwd
+        chmod 600 ~/.vnc/passwd
+        echo "#!/bin/bash\nxrdb $HOME/.Xresources\nstartlxde &" > ~/.vnc/xstartup
+        chmod +x ~/.vnc/xstartup
+        vncserver :1 -geometry 1280x800 -depth 24
+        sudo ufw allow 5901/tcp
+
+    - name: Set LXDE as default session for XRDP
       run: echo "lxsession -s LXDE -e LXDE" > ~/.xsession
 
-    - name: Update xrdp start script
+    - name: Update XRDP start script
       run: |
-        echo "export DESKTOP_SESSION=LXDE" | sudo tee -a /etc/xrdp/startwm.sh
-        echo "startlxde" | sudo tee -a /etc/xrdp/startwm.sh
+        sudo sed -i 's/^\(test -x \/etc\/X11\/Xsession && exec \/etc\/X11\/Xsession || exec \/bin\/sh \/etc\/X11\/Xsession\)/#\1/g' /etc/xrdp/startwm.sh
+        echo "lxsession -s LXDE -e LXDE" | sudo tee -a /etc/xrdp/startwm.sh
 
     - name: Download ngrok
       run: wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -O ngrok.zip
@@ -33,11 +43,15 @@ jobs:
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable RDP connections
-      run: sudo ufw allow 3389/tcp
+    - name: Enable RDP and VNC Connections
+      run: |
+        sudo ufw allow 3389/tcp  # RDP
+        sudo ufw allow 5901/tcp  # VNC
 
-    - name: Set xrdp user password
+    - name: Set XRDP user password
       run: echo 'runneradmin:P@ssw0rd!' | sudo chpasswd
 
     - name: Create Tunnel
-      run: ./ngrok tcp 3389
+      run: |
+        ./ngrok tcp 3389 &
+        ./ngrok tcp 5901 &
