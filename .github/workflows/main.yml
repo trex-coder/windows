@@ -10,9 +10,17 @@ jobs:
     - name: Install LXDE and dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y lxde-core lxterminal xrdp
+        sudo apt-get install -y lxde lxde-core lxterminal xrdp
         sudo systemctl enable xrdp
         sudo adduser xrdp ssl-cert
+
+    - name: Set LXDE as default session for xrdp
+      run: echo "lxsession -s LXDE -e LXDE" > ~/.xsession
+
+    - name: Update xrdp start script
+      run: |
+        echo "export DESKTOP_SESSION=LXDE" | sudo tee -a /etc/xrdp/startwm.sh
+        echo "startlxde" | sudo tee -a /etc/xrdp/startwm.sh
 
     - name: Download ngrok
       run: wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -O ngrok.zip
