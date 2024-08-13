@@ -7,30 +7,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install LXDE, XRDP, and VNC Server
+    - name: Install LXDE, VNC, and dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y lxde lxde-core lxterminal xrdp tightvncserver
-        sudo systemctl enable xrdp
-        sudo adduser xrdp ssl-cert
+        sudo apt-get install -y lxde lxde-core lxterminal tigervnc-standalone-server
+        vncpasswd -f <<<"P@ssw0rd!" > ~/.vnc/passwd
+        sudo chmod 600 ~/.vnc/passwd
 
-    - name: Configure VNC Server
-      run: |
-        mkdir -p ~/.vnc
-        echo "P@ssw0rd!" | vncpasswd -f > ~/.vnc/passwd
-        chmod 600 ~/.vnc/passwd
-        echo "#!/bin/bash\nxrdb $HOME/.Xresources\nstartlxde &" > ~/.vnc/xstartup
-        chmod +x ~/.vnc/xstartup
-        vncserver :1 -geometry 1280x800 -depth 24
-        sudo ufw allow 5901/tcp
+    - name: Set LXDE as default session for VNC
+      run: echo "lxsession -s LXDE -e LXDE" > ~/.vnc/xstartup
 
-    - name: Set LXDE as default session for XRDP
-      run: echo "lxsession -s LXDE -e LXDE" > ~/.xsession
-
-    - name: Update XRDP start script
-      run: |
-        sudo sed -i 's/^\(test -x \/etc\/X11\/Xsession && exec \/etc\/X11\/Xsession || exec \/bin\/sh \/etc\/X11\/Xsession\)/#\1/g' /etc/xrdp/startwm.sh
-        echo "lxsession -s LXDE -e LXDE" | sudo tee -a /etc/xrdp/startwm.sh
+    - name: Start VNC server
+      run: vncserver :1 -geometry 1280x800 -depth 24
 
     - name: Download ngrok
       run: wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -O ngrok.zip
@@ -43,37 +31,14 @@ jobs:
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable RDP and VNC Connections
-      run: |
-        sudo ufw allow 3389/tcp  # RDP
-        sudo ufw allow 5901/tcp  # VNC
+    - name: Enable VNC connections
+      run: sudo ufw allow 5901/tcp
 
-    - name: Set XRDP user password
+    - name: Provide VNC address
+      run: echo "VNC Server running at: $(hostname -I):1"
+
+    - name: Set VNC user password
       run: echo 'runneradmin:P@ssw0rd!' | sudo chpasswd
 
-    - name: Create RDP Tunnel
-      id: rdp-tunnel
-      run: ./ngrok tcp 3389 --log=stdout > ngrok_rdp.log &
-    
-    - name: Create VNC Tunnel
-      id: vnc-tunnel
-      run: ./ngrok tcp 5901 --log=stdout > ngrok_vnc.log &
-    
-    - name: Get RDP Tunnel Address
-      run: |
-        sleep 10  # Give ngrok time to start
-        NGROK_RDP=$(grep -o 'tcp://[0-9a-z]*\.ngrok\.io:[0-9]*' ngrok_rdp.log)
-        echo "RDP Address: $NGROK_RDP"
-        echo "RDP_ADDRESS=$NGROK_RDP" >> $GITHUB_ENV
-
-    - name: Get VNC Tunnel Address
-      run: |
-        sleep 10  # Give ngrok time to start
-        NGROK_VNC=$(grep -o 'tcp://[0-9a-z]*\.ngrok\.io:[0-9]*' ngrok_vnc.log)
-        echo "VNC Address: $NGROK_VNC"
-        echo "VNC_ADDRESS=$NGROK_VNC" >> $GITHUB_ENV
-
-    - name: Print Connection Information
-      run: |
-        echo "RDP Address: $RDP_ADDRESS"
-        echo "VNC Address: $VNC_ADDRESS"
+    - name: Create Tunnel
+      run: ./ngrok tcp 5901
