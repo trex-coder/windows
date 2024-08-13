@@ -11,7 +11,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y lxde lxde-core lxterminal tigervnc-standalone-server
-        vncpasswd -f <<<"P@ssw0rd!" > ~/.vnc/passwd
+        mkdir -p ~/.vnc
+        echo "P@ssw0rd!" | vncpasswd -f > ~/.vnc/passwd
         sudo chmod 600 ~/.vnc/passwd
 
     - name: Set LXDE as default session for VNC
