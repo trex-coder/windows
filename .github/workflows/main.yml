@@ -51,7 +51,29 @@ jobs:
     - name: Set XRDP user password
       run: echo 'runneradmin:P@ssw0rd!' | sudo chpasswd
 
-    - name: Create Tunnel
+    - name: Create RDP Tunnel
+      id: rdp-tunnel
+      run: ./ngrok tcp 3389 --log=stdout > ngrok_rdp.log &
+    
+    - name: Create VNC Tunnel
+      id: vnc-tunnel
+      run: ./ngrok tcp 5901 --log=stdout > ngrok_vnc.log &
+    
+    - name: Get RDP Tunnel Address
       run: |
-        ./ngrok tcp 3389 &
-        ./ngrok tcp 5901 &
+        sleep 10  # Give ngrok time to start
+        NGROK_RDP=$(grep -o 'tcp://[0-9a-z]*\.ngrok\.io:[0-9]*' ngrok_rdp.log)
+        echo "RDP Address: $NGROK_RDP"
+        echo "RDP_ADDRESS=$NGROK_RDP" >> $GITHUB_ENV
+
+    - name: Get VNC Tunnel Address
+      run: |
+        sleep 10  # Give ngrok time to start
+        NGROK_VNC=$(grep -o 'tcp://[0-9a-z]*\.ngrok\.io:[0-9]*' ngrok_vnc.log)
+        echo "VNC Address: $NGROK_VNC"
+        echo "VNC_ADDRESS=$NGROK_VNC" >> $GITHUB_ENV
+
+    - name: Print Connection Information
+      run: |
+        echo "RDP Address: $RDP_ADDRESS"
+        echo "VNC Address: $VNC_ADDRESS"
