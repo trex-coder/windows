@@ -16,7 +16,10 @@ jobs:
         sudo chmod 600 ~/.vnc/passwd
 
     - name: Set LXDE as default session for VNC
-      run: echo "lxsession -s LXDE -e LXDE" > ~/.vnc/xstartup
+      run: |
+        echo "#!/bin/sh" > ~/.vnc/xstartup
+        echo "lxsession -s LXDE -e LXDE" >> ~/.vnc/xstartup
+        sudo chmod +x ~/.vnc/xstartup
 
     - name: Start VNC server
       run: vncserver :1 -geometry 1280x800 -depth 24
