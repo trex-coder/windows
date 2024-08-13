@@ -35,7 +35,9 @@ jobs:
       run: sudo ufw allow 5901/tcp
 
     - name: Provide VNC address
-      run: echo "VNC Server running at: $(hostname -I):1"
+      run: |
+        IP_ADDRESS=$(hostname -I)
+        echo "VNC Server running at: ${IP_ADDRESS}:1"
 
     - name: Set VNC user password
       run: echo 'runneradmin:P@ssw0rd!' | sudo chpasswd
