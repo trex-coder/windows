@@ -1,50 +1,49 @@
 name: CI
 
+
+
 on: [push, workflow_dispatch]
 
+
+
 jobs:
+
   build:
-    runs-on: ubuntu-latest
+
+
+
+    runs-on: windows-latest
+
+
 
     steps:
-    - name: Install LXDE, VNC, and dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y lxde lxde-core lxterminal tigervnc-standalone-server
-        mkdir -p ~/.vnc
-        echo "P@ssw0rd!" | vncpasswd -f > ~/.vnc/passwd
-        sudo chmod 600 ~/.vnc/passwd
 
-    - name: Set LXDE as default session for VNC
-      run: |
-        echo "#!/bin/sh" > ~/.vnc/xstartup
-        echo "lxsession -s LXDE -e LXDE" >> ~/.vnc/xstartup
-        sudo chmod +x ~/.vnc/xstartup
+    - name: Download
 
-    - name: Start VNC server
-      run: vncserver :1 -geometry 1280x800 -depth 24
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
-    - name: Download ngrok
-      run: wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -O ngrok.zip
+    - name: Extract
 
-    - name: Extract ngrok
-      run: unzip ngrok.zip
+      run: Expand-Archive ngrok.zip
 
-    - name: Authenticate ngrok
-      run: ./ngrok authtoken $NGROK_AUTH_TOKEN
+    - name: Auth
+
+      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+
       env:
+
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable VNC connections
-      run: sudo ufw allow 5901/tcp
+    - name: Enable TS
 
-    - name: Provide VNC address
-      run: |
-        IP_ADDRESS=$(hostname -I)
-        echo "VNC Server running at: ${IP_ADDRESS}:1"
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
 
-    - name: Set VNC user password
-      run: echo 'runneradmin:P@ssw0rd!' | sudo chpasswd
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Create Tunnel
-      run: ./ngrok tcp 5901
+
+      run: .\ngrok\ngrok.exe tcp 3389
