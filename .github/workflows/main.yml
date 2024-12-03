@@ -1,53 +1,49 @@
 name: CI
 
+
+
 on: [push, workflow_dispatch]
 
+
+
 jobs:
+
   build:
+
+
+
     runs-on: windows-latest
 
+
+
     steps:
-    - name: Download Ngrok
+
+    - name: Download
+
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
-    - name: Extract Ngrok
+    - name: Extract
+
       run: Expand-Archive ngrok.zip
 
-    - name: Auth Ngrok
+    - name: Auth
+
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+
       env:
+
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
 
-    - name: Enable RDP Firewall
-      run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
 
-    - name: Enable RDP User Authentication
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - name: Set Admin Password
-      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-    - name: Download TigerVNC
-      run: |
-        $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.14.1/tigervnc64-1.14.1.exe"
-        $output = "tigervnc.exe"
-        Invoke-WebRequest -Uri $url -OutFile $output
-        $hash = Get-FileHash -Path $output -Algorithm SHA256
-        if ($hash.Hash -ne "YOUR_SHA256_HASH_HERE") { 
-          throw "File hash mismatch. The download might be corrupted." 
-        }
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install TigerVNC
-      run: Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
+    - name: Create Tunnel
 
-    - name: Configure VNC Password
-      run: vncpasswd.exe -service
-
-    - name: Start VNC Server
-      run: net start vncserver
-
-    - name: Create Ngrok Tunnel
       run: .\ngrok\ngrok.exe tcp 3389
