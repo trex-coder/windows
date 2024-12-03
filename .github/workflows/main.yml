@@ -18,40 +18,46 @@ jobs:
         env:
           NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: Enable TS
-        run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-
-      - name: Enable RDP Firewall
-        run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-      - name: Enable RDP User Authentication
-        run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-
-      - name: Set Admin Password
-        run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+      - name: Enable Terminal Services
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+          Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
       - name: Download TigerVNC
         run: |
           $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1.exe"
-          $output = "tigervnc.exe"
+          $output = "D:\a\_temp\tigervnc.exe"
           $attempts = 3
           while ($attempts -gt 0) {
-              Invoke-WebRequest -Uri $url -OutFile $output
-              if ((Test-Path $output) -and ((Get-Item $output).Length -gt 0)) { break }
+              try {
+                  Invoke-WebRequest -Uri $url -OutFile $output -ErrorAction Stop
+                  if ((Test-Path $output) -and ((Get-Item $output).Length -gt 0)) { break }
+              } catch {
+                  Write-Host "Download failed. Retrying..."
+              }
               $attempts--
           }
-          if ($attempts -eq 0) { throw "Failed to download TigerVNC after multiple attempts." }
+          if ($attempts -eq 0) { throw "TigerVNC download failed after multiple attempts." }
+
+      - name: Verify Download
+        run: |
+          $hash = Get-FileHash -Path "D:\a\_temp\tigervnc.exe" -Algorithm SHA256
+          if ($hash.Hash -ne "EXPECTED_SHA256_HASH") {
+              throw "File hash mismatch. The download might be corrupted."
+          }
 
       - name: Install TigerVNC
-        run: Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
+        run: Start-Process -Wait -FilePath "D:\a\_temp\tigervnc.exe" -ArgumentList "/S" -ErrorAction Stop
 
       - name: Configure VNC Password
         run: |
-          echo "password" | vncpasswd -f > C:\Users\runneradmin\.vnc\passwd
-          Set-ItemProperty -Path 'HKLM:\Software\TigerVNC\Server' -Name "PasswordFile" -Value "C:\Users\runneradmin\.vnc\passwd"
+          mkdir -Force C:\Users\runneradmin\.vnc
+          "password" | Out-File -Encoding ASCII C:\Users\runneradmin\.vnc\passwd
 
       - name: Start VNC Server
-        run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
+        run: Start-Process -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList "-rfbport 5900"
 
       - name: Create Ngrok Tunnel
-        run: .\ngrok\ngrok.exe tcp 5901
+        run: .\ngrok\ngrok.exe tcp 5900
