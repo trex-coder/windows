@@ -1,49 +1,49 @@
 name: CI
 
-
-
 on: [push, workflow_dispatch]
-
-
 
 jobs:
 
   build:
 
-
-
     runs-on: windows-latest
 
-
-
     steps:
-
-    - name: Download
-
+    - name: Download Ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-
-    - name: Extract
-
+    - name: Extract Ngrok
       run: Expand-Archive ngrok.zip
 
-    - name: Auth
-
+    - name: Auth Ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-
       env:
-
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Enable TS
-
       run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
 
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - name: Enable RDP Firewall
+      run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - name: Enable RDP User Authentication
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
 
-    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Set Admin Password
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Create Tunnel
+    - name: Install TigerVNC
+      run: |
+        Invoke-WebRequest https://github.com/TigerVNC/tigervnc/releases/download/v1.12.0/tigervnc-1.12.0.x86_64.exe -OutFile tigervnc.exe
+        Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
 
+    - name: Configure VNC Password
+      run: |
+        mkdir -Force "$Env:UserProfile\.vnc"
+        echo "P@ssw0rd!" | Out-File -Encoding ascii "$Env:UserProfile\.vnc\passwd"
+        vncpasswd -f < "$Env:UserProfile\.vnc\passwd" > "$Env:UserProfile\.vnc\passwdfile"
+
+    - name: Start VNC Server
+      run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
+
+    - name: Create Ngrok Tunnel
       run: .\ngrok\ngrok.exe tcp 3389
