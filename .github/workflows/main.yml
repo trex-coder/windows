@@ -31,16 +31,17 @@ jobs:
     - name: Set Admin Password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
+    - name: Download TigerVNC
+      run: Invoke-WebRequest https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1.exe -OutFile tigervnc.exe
+
     - name: Install TigerVNC
-      run: |
-        Invoke-WebRequest https://github.com/TigerVNC/tigervnc/releases/download/v1.12.0/tigervnc-1.12.0.x86_64.exe -OutFile tigervnc.exe
-        Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
+      run: Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
 
     - name: Configure VNC Password
       run: |
         mkdir -Force "$Env:UserProfile\.vnc"
         echo "P@ssw0rd!" | Out-File -Encoding ascii "$Env:UserProfile\.vnc\passwd"
-        vncpasswd -f < "$Env:UserProfile\.vnc\passwd" > "$Env:UserProfile\.vnc\passwdfile"
+        & "C:\Program Files\TigerVNC\vncpasswd.exe" -f < "$Env:UserProfile\.vnc\passwd" > "$Env:UserProfile\.vnc\passwdfile"
 
     - name: Start VNC Server
       run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
