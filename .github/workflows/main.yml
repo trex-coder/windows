@@ -11,6 +11,7 @@ jobs:
     steps:
     - name: Download Ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+
     - name: Extract Ngrok
       run: Expand-Archive ngrok.zip
 
@@ -20,7 +21,7 @@ jobs:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
 
     - name: Enable RDP Firewall
       run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
@@ -32,10 +33,30 @@ jobs:
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Download TigerVNC
-      run: Invoke-WebRequest https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1.exe -OutFile tigervnc.exe
+      run: |
+        $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1.exe"
+        $output = "tigervnc.exe"
+        $attempts = 3
+        while ($attempts -gt 0) {
+            Invoke-WebRequest $url -OutFile $output
+            if (Test-Path $output -and (Get-Item $output).Length -gt 0) { break }
+            $attempts--
+        }
+        if ($attempts -eq 0) { throw "Failed to download TigerVNC after multiple attempts." }
+
+    - name: Verify Download
+      run: |
+        $expectedHash = "1b8708b6b5d4e8928301787ac307254a29c7f6dc1223071776315ae6f7c87b20" # Replace with actual hash
+        $fileHash = (Get-FileHash -Path tigervnc.exe -Algorithm SHA256).Hash
+        if ($fileHash -ne $expectedHash) { throw "TigerVNC download is corrupted." }
 
     - name: Install TigerVNC
-      run: Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
+      run: |
+        try {
+            Start-Process -Wait -FilePath .\tigervnc.exe -ArgumentList "/S"
+        } catch {
+            throw "Installation failed: $($_.Exception.Message)"
+        }
 
     - name: Configure VNC Password
       run: |
