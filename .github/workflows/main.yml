@@ -11,14 +11,19 @@ jobs:
       run: |
         brew install --cask google-chrome
         brew install --cask chrome-remote-desktop-host
-        # Force the service to load in CI
-        sudo launchctl load /Library/LaunchAgents/com.google.chrome.remote-desktop.plist
-        # Confirm installation
-        if [ ! -f "/opt/google/chrome-remote-desktop/start-host" ]; then
-          echo "Attempting to locate the start-host script..."
-          find / -name start-host 2>/dev/null || echo "start-host script not found."
+        # Use launchctl bootstrap for proper activation
+        sudo launchctl bootstrap system /Library/LaunchAgents/com.google.chrome.remote-desktop.plist || echo "Failed to bootstrap service."
+
+    - name: Locate start-host Script
+      run: |
+        START_HOST_PATH=$(find / -name start-host 2>/dev/null | head -n 1)
+        if [ -z "$START_HOST_PATH" ]; then
+          echo "start-host script not found."
           exit 1
+        else
+          echo "start-host script located at: $START_HOST_PATH"
         fi
+        echo "START_HOST_PATH=$START_HOST_PATH" >> $GITHUB_ENV
 
     - name: Download and Extract ngrok
       run: |
@@ -36,7 +41,7 @@ jobs:
     - name: Start Chrome Remote Desktop
       run: |
         export DISPLAY=
-        /opt/google/chrome-remote-desktop/start-host \
+        $START_HOST_PATH \
           --code="4/0AeanS0YlZGEWmEyWPbxRAph-fTyumhtTCvYAK0_YK2bi6kjsltyhjJTefS32jjJuRZGezA" \
           --redirect-url="https://remotedesktop.google.com/_/oauthredirect" \
           --name=$(hostname)
