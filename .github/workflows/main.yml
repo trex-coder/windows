@@ -7,25 +7,28 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Download
+    - name: Download ngrok
       run: curl -o ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip
 
-    - name: Extract
+    - name: Extract ngrok
       run: unzip ngrok.zip
 
-    - name: Auth
+    - name: Authenticate ngrok
       run: ./ngrok authtoken $NGROK_AUTH_TOKEN
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Enable Screen Sharing
       run: |
-        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on \
-          -users $USER -privs -all
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -users $USER
         sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
+        sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+        sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+        sudo systemsetup -setremotelogin on
+        sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysUsesBonJour -bool false
 
     - name: Set User Password
       run: sudo sysadminctl -adminUser admin -adminPassword adminpassword -resetPasswordFor $USER -newPassword P@ssw0rd!
 
-    - name: Create Tunnel
+    - name: Start ngrok Tunnel
       run: ./ngrok tcp 5900
