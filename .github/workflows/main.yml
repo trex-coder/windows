@@ -18,13 +18,20 @@ jobs:
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable Screen Sharing
+    - name: Enable Screen Sharing and Remote Management
       run: |
-        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -users $USER
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on -privs -all -users $USER
         sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
         sudo systemsetup -setremotelogin on
+
+    - name: Enable VNC Access
+      run: |
+        echo "P@ssw0rd!" | perl -we 'print pack("H*",<STDIN>)' | sudo tee /Library/Preferences/com.apple.VNCSettings.txt > /dev/null
+        sudo chmod 600 /Library/Preferences/com.apple.VNCSettings.txt
+        sudo chown root:wheel /Library/Preferences/com.apple.VNCSettings.txt
         sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysUsesBonJour -bool false
 
     - name: Set User Password
