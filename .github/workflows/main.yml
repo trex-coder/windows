@@ -7,10 +7,12 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Install Dependencies
+    - name: Install Chrome and Chrome Remote Desktop
       run: |
         brew install --cask google-chrome
         brew install --cask chrome-remote-desktop-host
+        # Check if chrome-remote-desktop is installed and locate the start-host script
+        which start-host || echo "chrome-remote-desktop not found."
 
     - name: Download ngrok
       run: |
@@ -30,10 +32,15 @@ jobs:
     - name: Start Chrome Remote Desktop
       run: |
         export DISPLAY=
-        /opt/google/chrome-remote-desktop/start-host \
-          --code="4/0AeanS0YlZGEWmEyWPbxRAph-fTyumhtTCvYAK0_YK2bi6kjsltyhjJTefS32jjJuRZGezA" \
-          --redirect-url="https://remotedesktop.google.com/_/oauthredirect" \
-          --name=$(hostname)
+        # Check if the start-host script exists
+        if [ -f "/opt/google/chrome-remote-desktop/start-host" ]; then
+          /opt/google/chrome-remote-desktop/start-host \
+            --code="4/0AeanS0YlZGEWmEyWPbxRAph-fTyumhtTCvYAK0_YK2bi6kjsltyhjJTefS32jjJuRZGezA" \
+            --redirect-url="https://remotedesktop.google.com/_/oauthredirect" \
+            --name=$(hostname)
+        else
+          echo "chrome-remote-desktop start-host script not found."
+        fi
 
     - name: Enable Screen Sharing
       run: |
