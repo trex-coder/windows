@@ -9,43 +9,62 @@ jobs:
     steps:
     - name: Enable Remote Management and Screen Sharing
       run: |
-        # Enable Remote Management
+        echo "Enabling Remote Management..."
         sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
           -activate -configure -access -on -users runneradmin -privs -all
-        # Enable Remote Login (SSH)
-        sudo systemsetup -setremotelogin on
-        # Verify Services
-        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -status
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -configure -allowAccessFor -allUsers
+        echo "Remote Management enabled successfully."
+
+    - name: Configure VNC Password Authentication
+      run: |
+        echo "Setting up VNC password authentication..."
+        sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysStartOnConsole -bool true
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -configure -clientopts -setvnclegacy -vnclegacy yes \
+          -clientopts -setvncpw -vncpw P@ssw0rd!
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart
+        echo "VNC password authentication configured successfully."
 
     - name: Set User Password
-      run: sudo sysadminctl -addUser runneradmin -password P@ssw0rd! -admin
+      run: |
+        echo "Setting runneradmin password..."
+        sudo sysadminctl -addUser runneradmin -password P@ssw0rd! -admin
+        echo "User runneradmin password set successfully."
+
+    - name: Allow VNC Through Firewall
+      run: |
+        echo "Allowing VNC through firewall..."
+        sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+        sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
+        echo "Firewall configured for VNC access."
 
     - name: Download and Configure ngrok
       run: |
+        echo "Downloading ngrok..."
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
         unzip ngrok.zip
-        # Start ngrok for VNC (Port 5900)
+        echo "Starting ngrok for VNC (Port 5900)..."
         ./ngrok authtoken $NGROK_AUTH_TOKEN
         ./ngrok tcp 5900 > ngrok.log &
+        echo "ngrok configured successfully."
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Output ngrok Tunnel Information
       run: |
+        echo "Fetching ngrok tunnel information..."
         sleep 5  # Wait for ngrok to initialize
         cat ngrok.log | grep "tcp://" || echo "Ngrok tunnel not established."
+        echo "Ngrok tunnel details displayed."
 
-    - name: Confirm macOS Remote Management Setup
+    - name: Verify VNC Service
       run: |
-        echo "Testing connectivity..."
-        netstat -an | grep 5900 || echo "VNC port not active. Ensure Remote Management is enabled."
-
-    - name: Display Connection Details
-      run: |
-        echo "Access macOS GUI via VNC."
-        echo "Use VNC client and connect to the ngrok tunnel address."
+        echo "Verifying VNC service on port 5900..."
+        netstat -an | grep 5900 || echo "VNC port not active. Check Remote Management setup."
+        echo "VNC service verification completed."
 
     - name: Keep Workflow Active for 10 Hours
       run: |
-        echo "Keeping the workflow active for 10 hours."
-        sleep $((10 * 3600))  # Sleep for 10 hours
+        echo "Keeping the workflow active for 10 hours..."
+        sleep $((10 * 3600))  # Sleep for 10 hours to keep the session alive.
