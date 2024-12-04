@@ -33,17 +33,6 @@ jobs:
         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
         echo "Firewall configured for VNC access."
 
-    - name: Force macOS to Render Desktop
-      run: |
-        echo "Forcing macOS to render the desktop..."
-        sudo defaults write /Library/Preferences/com.apple.windowserver DisplayCreateFakeDisplay -bool true
-        sudo killall -HUP WindowServer
-        sleep 5  # Allow time for WindowServer to restart
-
-        # Simulate keyboard input to ensure desktop rendering
-        osascript -e 'tell application "System Events" to keystroke "r"'
-        echo "macOS display rendering forced successfully."
-
     - name: Prevent Premature Termination (Active Session)
       run: |
         echo "Preventing premature termination..."
