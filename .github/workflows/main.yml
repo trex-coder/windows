@@ -12,6 +12,13 @@ jobs:
         brew install --cask google-chrome
         brew install --cask chrome-remote-desktop-host
 
+    - name: Download ngrok
+      run: |
+        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
+
+    - name: Extract ngrok
+      run: unzip ngrok.zip
+
     - name: Authenticate ngrok
       run: ./ngrok authtoken $NGROK_AUTH_TOKEN
       env:
