@@ -7,53 +7,45 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Install Chrome and Chrome Remote Desktop
+    - name: Enable Remote Management and Screen Sharing
       run: |
-        brew install --cask google-chrome
-        brew install --cask chrome-remote-desktop-host
-        # Use launchctl bootstrap for proper activation
-        sudo launchctl bootstrap system /Library/LaunchAgents/com.google.chrome.remote-desktop.plist || echo "Failed to bootstrap service."
+        # Enable Remote Management
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on -users runneradmin -privs -all
+        # Enable Remote Login (SSH)
+        sudo systemsetup -setremotelogin on
+        # Verify Services
+        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -status
 
-    - name: Locate start-host Script
-      run: |
-        START_HOST_PATH=$(find / -name start-host 2>/dev/null | head -n 1)
-        if [ -z "$START_HOST_PATH" ]; then
-          echo "start-host script not found."
-          exit 1
-        else
-          echo "start-host script located at: $START_HOST_PATH"
-        fi
-        echo "START_HOST_PATH=$START_HOST_PATH" >> $GITHUB_ENV
+    - name: Set User Password
+      run: sudo sysadminctl -addUser runneradmin -password P@ssw0rd! -admin
 
-    - name: Download and Extract ngrok
+    - name: Download and Configure ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
         unzip ngrok.zip
-
-    - name: Authenticate ngrok
-      run: ./ngrok authtoken $NGROK_AUTH_TOKEN
+        # Start ngrok for VNC (Port 5900)
+        ./ngrok authtoken $NGROK_AUTH_TOKEN
+        ./ngrok tcp 5900 > ngrok.log &
       env:
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Create runneradmin User
-      run: sudo sysadminctl -addUser runneradmin -password P@ssw0rd! -admin
-
-    - name: Start Chrome Remote Desktop
+    - name: Output ngrok Tunnel Information
       run: |
-        export DISPLAY=
-        $START_HOST_PATH \
-          --code="4/0AeanS0YlZGEWmEyWPbxRAph-fTyumhtTCvYAK0_YK2bi6kjsltyhjJTefS32jjJuRZGezA" \
-          --redirect-url="https://remotedesktop.google.com/_/oauthredirect" \
-          --name=$(hostname)
+        sleep 5  # Wait for ngrok to initialize
+        cat ngrok.log | grep "tcp://" || echo "Ngrok tunnel not established."
 
-    - name: Enable Screen Sharing and Remote Login
+    - name: Confirm macOS Remote Management Setup
       run: |
-        sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-          -activate -configure -access -on -privs -all -users runneradmin
-        sudo systemsetup -setremotelogin on
+        echo "Testing connectivity..."
+        netstat -an | grep 5900 || echo "VNC port not active. Ensure Remote Management is enabled."
 
-    - name: Set Password
-      run: sudo sysadminctl -adminUser admin -adminPassword adminpassword -resetPasswordFor runneradmin -newPassword P@ssw0rd!
+    - name: Display Connection Details
+      run: |
+        echo "Access macOS GUI via VNC."
+        echo "Use VNC client and connect to the ngrok tunnel address."
 
-    - name: Start ngrok Tunnel
-      run: ./ngrok tcp 5900
+    - name: Keep Workflow Active for 10 Hours
+      run: |
+        echo "Keeping the workflow active for 10 hours."
+        sleep $((10 * 3600))  # Sleep for 10 hours
