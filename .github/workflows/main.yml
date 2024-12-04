@@ -39,13 +39,39 @@ jobs:
         sudo defaults write /Library/Preferences/com.apple.windowserver DisplayCreateFakeDisplay -bool true
         sudo killall -HUP WindowServer
         sleep 5  # Allow time for WindowServer to restart
+
+        # Simulate keyboard input to ensure desktop rendering
         osascript -e 'tell application "System Events" to keystroke "r"'
         echo "macOS display rendering forced successfully."
 
-    - name: Keep Session Active
+    - name: Prevent Premature Termination (Active Session)
       run: |
-        echo "Keeping session active..."
-        while true; do
-          osascript -e 'tell application "System Events" to keystroke " "'
-          sleep 60  # Simulate activity every minute
+        echo "Preventing premature termination..."
+        trap '' SIGTERM  # Ignore SIGTERM signals
+
+        SECONDS=0
+        MAX_SECONDS=$((10 * 3600))  # Run for 10 hours
+
+        while [ $SECONDS -lt $MAX_SECONDS ]; do
+          echo "Workflow active for $SECONDS seconds..."
+          sleep 60  # Sleep in 1-minute increments to keep the process alive
         done
+        echo "10-hour session completed."
+
+    - name: Start ngrok Tunnel for VNC
+      run: |
+        echo "Starting ngrok for VNC (Port 5900)..."
+        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
+        unzip ngrok.zip
+        ./ngrok authtoken $NGROK_AUTH_TOKEN
+        ./ngrok tcp 5900 > ngrok.log &
+        echo "ngrok configured successfully."
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Output ngrok Tunnel Information
+      run: |
+        echo "Fetching ngrok tunnel information..."
+        sleep 5  # Wait for ngrok to initialize
+        cat ngrok.log | grep "tcp://" || echo "Ngrok tunnel not established."
+        echo "Ngrok tunnel details displayed."
