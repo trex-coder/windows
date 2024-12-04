@@ -1,49 +1,28 @@
 name: CI
 
-
-
 on: [push, workflow_dispatch]
 
-
-
 jobs:
-
   build:
-
-
-
-    runs-on: windows-latest
-
-
+    runs-on: macos-latest
 
     steps:
-
     - name: Download
-
-      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-
+      run: curl -o ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip
+    
     - name: Extract
-
-      run: Expand-Archive ngrok.zip
-
+      run: unzip ngrok.zip
+    
     - name: Auth
-
-      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-
+      run: ./ngrok authtoken $NGROK_AUTH_TOKEN
       env:
-
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
 
-    - name: Enable TS
-
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
-
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-
-    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Enable Remote Login
+      run: sudo systemsetup -setremotelogin on
+    
+    - name: Allow SSH Access
+      run: sudo dscl . append /Groups/com.apple.access_ssh GroupMembership $USER
 
     - name: Create Tunnel
-
-      run: .\ngrok\ngrok.exe tcp 3389
+      run: ./ngrok tcp 22
