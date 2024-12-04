@@ -25,8 +25,7 @@ jobs:
         sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
 
     - name: Set User Password
-      run: |
-        sudo dscl . -passwd /Users/$USER P@ssw0rd!
+      run: sudo sysadminctl -adminUser admin -adminPassword adminpassword -resetPasswordFor $USER -newPassword P@ssw0rd!
 
     - name: Create Tunnel
       run: ./ngrok tcp 5900
