@@ -64,6 +64,14 @@ jobs:
         netstat -an | grep 5900 || echo "VNC port not active. Check Remote Management setup."
         echo "VNC service verification completed."
 
+    - name: Force macOS to Render Desktop
+      run: |
+        echo "Forcing macOS to render the desktop..."
+        sudo defaults write /Library/Preferences/com.apple.windowserver DisplayCreateFakeDisplay -bool true
+        sudo killall -HUP WindowServer
+        sleep 3  # Wait for changes to take effect
+        echo "macOS display rendered."
+
     - name: Keep Workflow Active for 10 Hours
       run: |
         echo "Keeping the workflow active for 10 hours..."
