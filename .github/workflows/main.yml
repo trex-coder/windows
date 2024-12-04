@@ -26,18 +26,22 @@ jobs:
         sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart
         echo "VNC password authentication configured successfully."
 
-    - name: Set User Password
-      run: |
-        echo "Setting runneradmin password..."
-        sudo sysadminctl -addUser runneradmin -password P@ssw0rd! -admin
-        echo "User runneradmin password set successfully."
-
     - name: Allow VNC Through Firewall
       run: |
         echo "Allowing VNC through firewall..."
         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/RemoteManagement/ARDAgent.app
         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /System/Library/CoreServices/RemoteManagement/ARDAgent.app
         echo "Firewall configured for VNC access."
+
+    - name: Force macOS to Render Desktop
+      run: |
+        echo "Forcing macOS to render the desktop..."
+        trap '' SIGTERM  # Ignore termination signals during this step
+        sudo defaults write /Library/Preferences/com.apple.windowserver DisplayCreateFakeDisplay -bool true
+        sudo killall -HUP WindowServer
+        sleep 3  # Allow time for WindowServer to restart
+        osascript -e 'tell application "System Events" to keystroke "r"'
+        echo "macOS display rendering forced."
 
     - name: Download and Configure ngrok
       run: |
@@ -64,15 +68,15 @@ jobs:
         netstat -an | grep 5900 || echo "VNC port not active. Check Remote Management setup."
         echo "VNC service verification completed."
 
-    - name: Force macOS to Render Desktop
-      run: |
-        echo "Forcing macOS to render the desktop..."
-        sudo defaults write /Library/Preferences/com.apple.windowserver DisplayCreateFakeDisplay -bool true
-        sudo killall -HUP WindowServer
-        sleep 3  # Wait for changes to take effect
-        echo "macOS display rendered."
-
     - name: Keep Workflow Active for 10 Hours
       run: |
         echo "Keeping the workflow active for 10 hours..."
-        sleep $((10 * 3600))  # Sleep for 10 hours to keep the session alive.
+        trap '' SIGTERM  # Prevent termination
+        SECONDS=0
+        MAX_SECONDS=$((10 * 3600))  # 10 hours
+
+        while [ $SECONDS -lt $MAX_SECONDS ]; do
+          echo "Workflow active for $SECONDS seconds..."
+          sleep 60  # Sleep in 1-minute increments
+        done
+        echo "10-hour session completed."
