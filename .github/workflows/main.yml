@@ -26,10 +26,15 @@ jobs:
     - name: Set runneradmin password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install Python (for noVNC utils)
+    - name: Install Python (required for some VNC utilities)
       run: |
         Invoke-WebRequest https://www.python.org/ftp/python/3.10.9/python-3.10.9-amd64.exe -OutFile python.exe
         Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
 
     - name: Download and install TightVNC
       run: |
@@ -41,33 +46,24 @@ jobs:
     - name: Start TightVNC server
       run: Start-Process -FilePath "C:\Program Files\TightVNC\tvnserver.exe"
 
-    - name: Clone and start noVNC
+    - name: Sleep to let VNC server start
+      run: Start-Sleep -Seconds 10
+
+    - name: Clone and start noVNC (inline for debug)
       run: |
         git clone https://github.com/novnc/noVNC.git
         cd noVNC
         npm install
-        Start-Process node -ArgumentList ".\utils\websockify.js 6901 localhost:5900" -RedirectStandardOutput "out.log" -RedirectStandardError "err.log"
-
-    - name: Sleep to let VNC and noVNC start
-      run: Start-Sleep -Seconds 30
-
-    - name: Check if TightVNC is running
-      run: Get-Process | Where-Object { $_.ProcessName -like "*tvnserver*" }
+        echo "===== STARTING WEBSOCKIFY ====="
+        node .\utils\websockify.js 6901 localhost:5900
 
     - name: Check if port 6901 is open
-      continue-on-error: true
       run: netstat -an | findstr ":6901"
 
-    - name: Show websockify error log if port is not open
-      if: ${{ failure() }}
-      run: |
-        Write-Host "==== websockify ERROR LOG ===="
-        Get-Content noVNC\err.log
-
-    - name: Start ngrok HTTP (noVNC)
+    - name: Start ngrok HTTP tunnel for noVNC
       run: Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901"
 
-    - name: Loop and print Ngrok URLs forever
+    - name: Loop and print Ngrok URLs
       run: |
         while ($true) {
           Write-Host "========== NGROK TUNNELS =========="
