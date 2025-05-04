@@ -24,7 +24,7 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
     - name: Set runneradmin password
-      run: Set-LocalUser  -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+      run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Install Python (for noVNC utils)
       run: |
@@ -46,20 +46,29 @@ jobs:
         git clone https://github.com/novnc/noVNC.git
         cd noVNC
         npm install
-        # Use node to run websockify.js
-        Start-Process -NoNewWindow -FilePath node -ArgumentList ".\utils\websockify.js", "6901", "localhost:5900"
+        Start-Process node -ArgumentList ".\utils\websockify.js 6901 localhost:5900" -RedirectStandardOutput "out.log" -RedirectStandardError "err.log"
 
     - name: Sleep to let VNC and noVNC start
-      run: Start-Sleep -Seconds 15
+      run: Start-Sleep -Seconds 30
 
-    - name: Start ngrok HTTP (noVNC) in foreground
+    - name: Check if TightVNC is running
+      run: Get-Process | Where-Object { $_.ProcessName -like "*tvnserver*" }
+
+    - name: Check if port 6901 is open
+      run: netstat -an | findstr ":6901"
+
+    - name: Start ngrok HTTP (noVNC)
       run: Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901"
 
     - name: Loop and print Ngrok URLs forever
       run: |
         while ($true) {
           Write-Host "========== NGROK TUNNELS =========="
-          $url = (Invoke-RestMethod http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
-          Write-Host "URL: $url"
+          try {
+            $url = (Invoke-RestMethod http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
+            Write-Host "URL: $url"
+          } catch {
+            Write-Host "Ngrok tunnel not available yet..."
+          }
           Start-Sleep -Seconds 10
         }
