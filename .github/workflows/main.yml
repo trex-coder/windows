@@ -43,32 +43,40 @@ jobs:
         Copy-Item .\novnc\vnc.html .\novnc\index.html
         Start-Process "python" -ArgumentList "-m", "http.server", "6901", "--directory", ".\novnc" -WindowStyle Hidden
 
-    - name: Sleep to let server start
-      run: Start-Sleep -Seconds 10
-
-    - name: Start ngrok for RDP
+    - name: Start ngrok RDP in foreground
       shell: pwsh
-      run: Start-Job { .\ngrok\ngrok.exe tcp 3389 } | Out-Null
+      run: |
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp", "3389" -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds 5
 
-    - name: Start ngrok for noVNC (HTTP)
+    - name: Start ngrok HTTP (noVNC) in foreground
       shell: pwsh
-      run: Start-Job { .\ngrok\ngrok.exe http 6901 } | Out-Null
+      run: |
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901" -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds 5
 
     - name: Loop and print Ngrok URLs forever
       shell: pwsh
       run: |
-        Write-Host "Starting infinite Ngrok URL monitor..."
+        Write-Host "Waiting for Ngrok API..."
+        $maxRetries = 20
+        $attempt = 0
         while ($true) {
           try {
             $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            Write-Host "========== NGROK TUNNELS =========="
-            foreach ($tunnel in $response.tunnels) {
-              Write-Host "Name: $($tunnel.name)"
-              Write-Host "URL: $($tunnel.public_url)"
+            if ($response.tunnels.Count -gt 0) {
+              Write-Host "========== NGROK TUNNELS =========="
+              foreach ($tunnel in $response.tunnels) {
+                Write-Host "Name: $($tunnel.name)"
+                Write-Host "URL: $($tunnel.public_url)"
+              }
+              Write-Host "==================================="
+            } else {
+              Write-Host "No tunnels found yet."
             }
-            Write-Host "==================================="
           } catch {
             Write-Host "Ngrok API not ready or error occurred. Retrying..."
           }
-          Start-Sleep -Seconds 30
+          Start-Sleep -Seconds 15
+          $attempt++
         }
