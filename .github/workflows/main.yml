@@ -55,7 +55,14 @@ jobs:
       run: Get-Process | Where-Object { $_.ProcessName -like "*tvnserver*" }
 
     - name: Check if port 6901 is open
+      continue-on-error: true
       run: netstat -an | findstr ":6901"
+
+    - name: Show websockify error log if port is not open
+      if: ${{ failure() }}
+      run: |
+        Write-Host "==== websockify ERROR LOG ===="
+        Get-Content noVNC\err.log
 
     - name: Start ngrok HTTP (noVNC)
       run: Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901"
