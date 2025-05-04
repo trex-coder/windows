@@ -33,7 +33,7 @@ jobs:
 
     - name: Download and install TigerVNC
       run: |
-        $url = "https://sourceforge.net/projects/tigervnc/files/stable/1.15.0/tigervnc64-1.15.0.exe/download"
+        $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.15.0/tigervnc64-1.15.0.exe"
         $output = "tigervnc64-1.15.0.exe"
         Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
         Start-Process -FilePath $output -ArgumentList "/silent" -Wait
