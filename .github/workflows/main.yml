@@ -31,22 +31,22 @@ jobs:
         Invoke-WebRequest https://www.python.org/ftp/python/3.10.9/python-3.10.9-amd64.exe -OutFile python.exe
         Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
 
-    - name: Download and install TigerVNC
+    - name: Download and install TightVNC
       run: |
-        $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.15.0/tigervnc64-1.15.0.exe"
-        $output = "tigervnc64-1.15.0.exe"
-        Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
-        Start-Process -FilePath $output -ArgumentList "/silent" -Wait
+        $url = "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi"
+        $output = "tightvnc.msi"
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Start-Process msiexec.exe -ArgumentList "/i", "$output", "/quiet" -Wait
 
-    - name: Start TigerVNC server
-      run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
+    - name: Start TightVNC server
+      run: Start-Process -FilePath "C:\Program Files\TightVNC\tvnserver.exe"
 
     - name: Clone and start noVNC
       run: |
         git clone https://github.com/novnc/noVNC.git
         cd noVNC
         npm install
-        Start-Process -NoNewWindow -FilePath .\utils\websockify.js -ArgumentList "6901", "localhost:5901"
+        Start-Process -NoNewWindow -FilePath .\utils\websockify.js -ArgumentList "6901", "localhost:5900"
 
     - name: Sleep to let VNC and noVNC start
       run: Start-Sleep -Seconds 15
