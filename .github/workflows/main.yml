@@ -33,8 +33,10 @@ jobs:
 
     - name: Download and install TigerVNC
       run: |
-        Invoke-WebRequest https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1-64-bit.exe -OutFile vnc_installer.exe
-        Start-Process -FilePath vnc_installer.exe -ArgumentList "/silent" -Wait
+        $url = "https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1-64-bit.exe"
+        $output = "vnc_installer.exe"
+        (New-Object System.Net.WebClient).DownloadFile($url, $output)
+        Start-Process -FilePath $output -ArgumentList "/silent" -Wait
 
     - name: Start TigerVNC server
       run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
