@@ -7,14 +7,11 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Set up job
-      run: echo "Starting..."
-
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
     - name: Extract ngrok
-      run: Expand-Archive ngrok.zip
+      run: Expand-Archive ngrok.zip -DestinationPath ngrok
 
     - name: Auth ngrok
       run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
@@ -23,60 +20,43 @@ jobs:
 
     - name: Enable Remote Desktop
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
     - name: Set runneradmin password
       run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install Python (for noVNC)
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-
-    - name: Install and Start noVNC (KasmVNC-style)
+    - name: Install Python (for noVNC utils)
       run: |
-        Invoke-WebRequest https://github.com/novnc/noVNC/archive/refs/heads/master.zip -OutFile novnc.zip
-        Expand-Archive novnc.zip -DestinationPath .
-        Rename-Item .\noVNC-master .\novnc
-        Copy-Item .\novnc\vnc.html .\novnc\index.html
-        Start-Process "python" -ArgumentList "-m", "http.server", "6901", "--directory", ".\novnc" -WindowStyle Hidden
+        Invoke-WebRequest https://www.python.org/ftp/python/3.10.9/python-3.10.9-amd64.exe -OutFile python.exe
+        Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
 
-    - name: Start ngrok RDP in foreground
-      shell: pwsh
+    - name: Download and install TigerVNC
       run: |
-        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp", "3389" -WindowStyle Hidden -PassThru
-        Start-Sleep -Seconds 5
+        Invoke-WebRequest https://downloads.sourceforge.net/project/tigervnc/stable/1.13.1/TigerVNC-1.13.1-64-bit.exe -OutFile vnc_installer.exe
+        Start-Process -FilePath vnc_installer.exe -ArgumentList "/silent" -Wait
+
+    - name: Start TigerVNC server
+      run: Start-Process -NoNewWindow -FilePath "C:\Program Files\TigerVNC\vncserver.exe" -ArgumentList ":1"
+
+    - name: Clone and start noVNC
+      run: |
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
+        npm install
+        Start-Process -NoNewWindow -FilePath .\utils\websockify.js -ArgumentList "6901", "localhost:5901"
+
+    - name: Sleep to let VNC and noVNC start
+      run: Start-Sleep -Seconds 15
 
     - name: Start ngrok HTTP (noVNC) in foreground
-      shell: pwsh
-      run: |
-        Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901" -WindowStyle Hidden -PassThru
-        Start-Sleep -Seconds 5
+      run: Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901"
 
     - name: Loop and print Ngrok URLs forever
-      shell: pwsh
       run: |
-        Write-Host "Waiting for Ngrok API..."
-        $maxRetries = 20
-        $attempt = 0
         while ($true) {
-          try {
-            $response = Invoke-RestMethod http://127.0.0.1:4040/api/tunnels
-            if ($response.tunnels.Count -gt 0) {
-              Write-Host "========== NGROK TUNNELS =========="
-              foreach ($tunnel in $response.tunnels) {
-                Write-Host "Name: $($tunnel.name)"
-                Write-Host "URL: $($tunnel.public_url)"
-              }
-              Write-Host "==================================="
-            } else {
-              Write-Host "No tunnels found yet."
-            }
-          } catch {
-            Write-Host "Ngrok API not ready or error occurred. Retrying..."
-          }
-          Start-Sleep -Seconds 15
-          $attempt++
+          Write-Host "========== NGROK TUNNELS =========="
+          $url = (Invoke-RestMethod http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
+          Write-Host "URL: $url"
+          Start-Sleep -Seconds 10
         }
