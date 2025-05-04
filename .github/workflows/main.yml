@@ -7,6 +7,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Set up job
+      run: echo "Starting..."
+
     - name: Download ngrok
       run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
@@ -44,10 +47,12 @@ jobs:
       run: Start-Sleep -Seconds 10
 
     - name: Start ngrok for RDP
-      run: Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp", "3389" -NoNewWindow
+      shell: pwsh
+      run: Start-Job { .\ngrok\ngrok.exe tcp 3389 } | Out-Null
 
     - name: Start ngrok for noVNC (HTTP)
-      run: Start-Process .\ngrok\ngrok.exe -ArgumentList "http", "6901" -NoNewWindow
+      shell: pwsh
+      run: Start-Job { .\ngrok\ngrok.exe http 6901 } | Out-Null
 
     - name: Loop and print Ngrok URLs forever
       shell: pwsh
