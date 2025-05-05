@@ -7,36 +7,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install dependencies
+    - name: Install core dependencies
       run: |
         sudo apt update
-        sudo apt install -y git curl unzip python3 python3-pip \
-          xvfb fluxbox x11vnc net-tools nodejs npm jq
+        sudo apt install -y curl unzip git software-properties-common jq
 
-    - name: Download and install noVNC
+    - name: Install full KDE Plasma and x11 utilities
       run: |
-        git clone https://github.com/novnc/noVNC.git
-        cd noVNC
-        git clone https://github.com/novnc/websockify.git
-        npm install
+        sudo apt install -y tasksel
+        sudo tasksel install kubuntu-desktop
+        sudo apt install -y x11vnc xvfb
 
-    - name: Start virtual display and window manager
+    - name: Download and run KasmVNC
       run: |
+        git clone https://github.com/kasmtech/KasmVNC.git
+        cd KasmVNC
+        ./install.sh
         export DISPLAY=:1
-        Xvfb :1 -screen 0 1024x768x16 &
-        fluxbox &
+        Xvfb :1 -screen 0 1920x1080x24 &
+        startplasma-x11 &
+        ./kasmvnc --listen 6901 --vnc localhost:5900 &
 
-    - name: Start VNC server (x11vnc)
-      run: |
-        export DISPLAY=:1
-        x11vnc -display :1 -forever -nopw -shared -rfbport 5900 &
-
-    - name: Start noVNC proxy
-      run: |
-        cd noVNC
-        ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
-
-    - name: Download and start ngrok
+    - name: Install and run Ngrok
       run: |
         curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip -o ngrok.zip
         unzip ngrok.zip
