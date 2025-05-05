@@ -1,47 +1,44 @@
 name: CI
 
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install core dependencies
+    - name: Set up environment
       run: |
-        sudo apt update
-        sudo apt install -y curl unzip git software-properties-common jq
+        sudo apt-get update
+        sudo apt-get install -y sudo wget curl gnupg2 software-properties-common lsb-release
 
     - name: Install full KDE Plasma and x11 utilities
       run: |
-        sudo apt install -y tasksel
-        sudo tasksel install kubuntu-desktop
-        sudo apt install -y x11vnc xvfb
+        sudo apt-get install -y kde-plasma-desktop x11-utils x11vnc
+
+    - name: Install Firefox
+      run: |
+        sudo apt-get install -y firefox
 
     - name: Download and run KasmVNC
       run: |
         git clone https://github.com/kasmtech/KasmVNC.git
         cd KasmVNC
-        ./install.sh
-        export DISPLAY=:1
-        Xvfb :1 -screen 0 1920x1080x24 &
-        startplasma-x11 &
-        ./kasmvnc --listen 6901 --vnc localhost:5900 &
+        chmod +x kasm_web/start.sh
+        ./kasm_web/start.sh &
 
     - name: Install and run Ngrok
       run: |
-        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip -o ngrok.zip
-        unzip ngrok.zip
-        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        nohup ./ngrok http 6901 > ngrok.log &
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update && sudo apt-get install -y ngrok
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        nohup ngrok http 6901 &
 
     - name: Wait for services to start
       run: sleep 20
 
     - name: Continuously print Ngrok public URL
       run: |
-        while true; do
-          echo "========== NGROK TUNNELS =========="
-          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-          sleep 10
-        done
+        while true; do curl -s http://127.0.0.1:4040/api/tunnels | grep -Eo 'https://[a-z0-9]+\\.ngrok-free\\.app'; sleep 30; done
