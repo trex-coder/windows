@@ -11,22 +11,27 @@ jobs:
     - name: Set up environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y sudo wget curl gnupg2 software-properties-common lsb-release
+        sudo apt-get install -y sudo wget curl git x11vnc xvfb \
+          kde-plasma-desktop firefox fluxbox net-tools
 
-    - name: Install full KDE Plasma and x11 utilities
+    - name: Set display and start X session
       run: |
-        sudo apt-get install -y kde-plasma-desktop x11-utils x11vnc
+        export DISPLAY=:1
+        Xvfb :1 -screen 0 1024x768x24 &
 
-    - name: Install Firefox
+    - name: Start KDE session and x11vnc
       run: |
-        sudo apt-get install -y firefox
+        export DISPLAY=:1
+        startplasma-x11 &
+        sleep 10
+        x11vnc -display :1 -nopw -forever -shared -bg
 
-    - name: Install KasmVNC
+    - name: Clone and start noVNC
       run: |
-        wget https://github.com/kasmtech/KasmVNC/releases/latest/download/kasmvncserver_1.0.0_amd64.deb
-        sudo apt-get install -y ./kasmvncserver_1.0.0_amd64.deb
-        sudo adduser $USER ssl-cert
-        vncserver
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
+        git clone https://github.com/novnc/websockify
+        ./utils/launch.sh --vnc localhost:5900 --listen 6901 &
 
     - name: Install and run Ngrok
       run: |
