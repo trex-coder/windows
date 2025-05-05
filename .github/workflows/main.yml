@@ -10,7 +10,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y git curl unzip python3 python3-pip xvfb fluxbox x11vnc net-tools nodejs npm
+        sudo apt install -y git curl unzip python3 python3-pip \
+          xvfb fluxbox x11vnc net-tools nodejs npm jq
 
     - name: Download and install noVNC
       run: |
@@ -19,14 +20,18 @@ jobs:
         git clone https://github.com/novnc/websockify.git
         npm install
 
-    - name: Start VNC server
+    - name: Start virtual display and window manager
       run: |
         export DISPLAY=:1
         Xvfb :1 -screen 0 1024x768x16 &
-        fluxbox &    # lightweight window manager
+        fluxbox &
+
+    - name: Start VNC server (x11vnc)
+      run: |
+        export DISPLAY=:1
         x11vnc -display :1 -forever -nopw -shared -rfbport 5900 &
 
-    - name: Start noVNC server
+    - name: Start noVNC proxy
       run: |
         cd noVNC
         ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
@@ -41,16 +46,10 @@ jobs:
     - name: Wait for services to start
       run: sleep 20
 
-    - name: Show ngrok public URL
-      run: curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-
     - name: Continuously print Ngrok public URL
       run: |
-    while true; do
-      echo "========== NGROK TUNNELS =========="
-      curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-      sleep 10
-    done
-
-      
-      
+        while true; do
+          echo "========== NGROK TUNNELS =========="
+          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+          sleep 10
+        done
