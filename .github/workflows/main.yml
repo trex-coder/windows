@@ -7,32 +7,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y git curl unzip python3 python3-pip \
-          xvfb x11vnc net-tools nodejs npm jq \
-          kde-plasma-desktop firefox
+        sudo apt install -y curl unzip python3 python3-pip jq \
+          x11vnc xvfb firefox plasma-desktop sddm kde-spectacle \
+          nodejs npm git net-tools
 
-    - name: Download and install noVNC
+    - name: Install noVNC
       run: |
         git clone https://github.com/novnc/noVNC.git
         cd noVNC
         git clone https://github.com/novnc/websockify.git
         npm install
 
-    - name: Start virtual display and KDE Plasma
+    - name: Start KDE Plasma in Xvfb
       run: |
         export DISPLAY=:1
-        Xvfb :1 -screen 0 1024x768x16 &
+        Xvfb :1 -screen 0 1280x720x16 &
         startplasma-x11 &
 
-    - name: Start VNC server (x11vnc)
+    - name: Start x11vnc
       run: |
         export DISPLAY=:1
-        x11vnc -display :1 -forever -nopw -shared -rfbport 5900 &
+        x11vnc -display :1 -nopw -forever -shared -rfbport 5900 &
 
-    - name: Start noVNC proxy
+    - name: Start noVNC
       run: |
         cd noVNC
         ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
@@ -43,14 +46,32 @@ jobs:
         unzip ngrok.zip
         ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
         nohup ./ngrok http 6901 > ngrok.log &
+        sleep 10
 
-    - name: Wait for services to start
-      run: sleep 20
-
-    - name: Continuously print Ngrok public URL
+    - name: Get Ngrok public URL
+      id: ngrok
       run: |
-        while true; do
-          echo "========== NGROK TUNNELS =========="
-          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-          sleep 10
-        done
+        URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+        echo "NGROK_URL=$URL" >> $GITHUB_ENV
+
+    - name: Upload noVNC URL to Firebase
+      env:
+        FIREBASE_KEY: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+        NGROK_URL: ${{ env.NGROK_URL }}
+        UID: ${{ github.actor }}
+      run: |
+        echo "$FIREBASE_KEY" > creds.json
+        pip install firebase-admin
+        python3 <<EOF
+import firebase_admin
+from firebase_admin import credentials, db
+import os
+
+cred = credentials.Certificate('creds.json')
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://loudwave-54180-default-rtdb.asia-southeast1.firebasedatabase.app/'
+})
+
+ref = db.reference(f"users/{os.environ['UID']}/url")
+ref.set(os.environ['NGROK_URL'])
+EOF
