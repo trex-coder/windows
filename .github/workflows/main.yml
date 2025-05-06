@@ -18,8 +18,7 @@ jobs:
           nodejs npm git net-tools
 
     - name: Install noVNC (custom version)
-      run: |
-        unzip ./rdp/custom-novnc/noVNC-master.zip -d ./rdp/custom-novnc/
+       run: unzip custom-novnc/noVNC-master.zip -d custom-novnc/
         mv ./rdp/custom-novnc/noVNC-master ./noVNC
         cd ./noVNC
         git clone https://github.com/novnc/websockify
