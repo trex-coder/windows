@@ -18,10 +18,10 @@ jobs:
           nodejs npm git net-tools
 
     - name: Install noVNC (custom version)
-       run: unzip custom-novnc/noVNC-master.zip -d custom-novnc/
-        mv ./rdp/custom-novnc/noVNC-master ./noVNC
-        cd ./noVNC
-        git clone https://github.com/novnc/websockify
+      run: |
+        unzip custom-novnc/noVNC-master.zip -d custom-novnc/
+        cd custom-novnc/noVNC-master
+        git clone https://github.com/novnc/websockify.git
         npm install
 
     - name: Start KDE Plasma in Xvfb
@@ -37,7 +37,7 @@ jobs:
 
     - name: Start noVNC
       run: |
-        cd noVNC
+        cd custom-novnc/noVNC-master
         ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
 
     - name: Download and start ngrok
