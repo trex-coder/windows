@@ -19,7 +19,7 @@ jobs:
 
     - name: Install noVNC
       run: |
-        git clone https://github.com/novnc/noVNC.git
+        git clone https://github.com/trex-coder/Novnc.git
         cd noVNC
         git clone https://github.com/novnc/websockify.git
         npm install
