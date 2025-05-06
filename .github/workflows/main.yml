@@ -17,11 +17,12 @@ jobs:
           x11vnc xvfb firefox plasma-desktop sddm kde-spectacle \
           nodejs npm git net-tools
 
-    - name: Install noVNC
+    - name: Install noVNC (custom version)
       run: |
-        git clone https://github.com/novnc/noVNC.git
-        cd noVNC
-        git clone https://github.com/novnc/websockify.git
+        unzip ./rdp/custom-novnc/noVNC-master.zip -d ./rdp/custom-novnc/
+        mv ./rdp/custom-novnc/noVNC-master ./noVNC
+        cd ./noVNC
+        git clone https://github.com/novnc/websockify
         npm install
 
     - name: Start KDE Plasma in Xvfb
