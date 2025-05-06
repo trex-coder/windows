@@ -62,16 +62,16 @@ jobs:
       run: |
         echo "$FIREBASE_KEY" > creds.json
         pip install firebase-admin
-        python3 <<EOF
-import firebase_admin
-from firebase_admin import credentials, db
-import os
+        if [ -f "upload_url.py" ]; then
+          python3 upload_url.py
+        else
+          echo "upload_url.py not found!"
+          exit 1
+        fi
 
-cred = credentials.Certificate('creds.json')
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://loudwave-54180-default-rtdb.asia-southeast1.firebasedatabase.app/'
-})
-
-ref = db.reference(f"users/{os.environ['UID']}/url")
-ref.set(os.environ['NGROK_URL'])
-EOF
+    - name: Loop output of URL
+      run: |
+        while true; do
+          echo "Access URL: ${{ env.NGROK_URL }}"
+          sleep 10
+        done
