@@ -20,7 +20,7 @@ jobs:
     - name: Install noVNC
       run: |
         git clone https://github.com/trex-coder/Novnc.git
-        cd noVNC
+        cd Novnc
         git clone https://github.com/novnc/websockify.git
         npm install
 
@@ -28,6 +28,7 @@ jobs:
       run: |
         export DISPLAY=:1
         Xvfb :1 -screen 0 1280x720x16 &
+        sleep 2
         startplasma-x11 &
 
     - name: Start x11vnc
@@ -37,7 +38,7 @@ jobs:
 
     - name: Start noVNC
       run: |
-        cd noVNC
+        cd Novnc
         ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
 
     - name: Download and start ngrok
@@ -52,6 +53,7 @@ jobs:
       id: ngrok
       run: |
         URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+        echo "NGROK_URL=$URL"
         echo "NGROK_URL=$URL" >> $GITHUB_ENV
 
     - name: Upload noVNC URL to Firebase
