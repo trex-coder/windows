@@ -17,10 +17,10 @@ jobs:
           x11vnc xvfb firefox plasma-desktop sddm kde-spectacle \
           nodejs npm git net-tools
 
-    - name: Install noVNC (custom version)
+    - name: Install noVNC
       run: |
-        unzip custom-novnc/noVNC-master.zip -d custom-novnc/
-        cd custom-novnc/noVNC-master
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
         git clone https://github.com/novnc/websockify.git
         npm install
 
@@ -37,7 +37,7 @@ jobs:
 
     - name: Start noVNC
       run: |
-        cd custom-novnc/noVNC-master
+        cd noVNC
         ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
 
     - name: Download and start ngrok
