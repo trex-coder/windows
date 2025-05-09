@@ -1,0 +1,82 @@
+name: Windows VNC Host
+
+on: [push, workflow_dispatch]
+
+jobs:
+  run-vnc:
+    runs-on: self-hosted  # Must be a Windows self-hosted runner with GUI
+
+    steps:
+    - name: Install dependencies (Node.js, Git, Python)
+      shell: powershell
+      run: |
+        choco install -y nodejs git python jq
+
+    - name: Download and Install TightVNC
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" -OutFile "tightvnc.msi"
+        Start-Process msiexec.exe -Wait -ArgumentList '/i', 'tightvnc.msi', '/quiet', '/norestart'
+
+    - name: Configure TightVNC Password to 'admin'
+      shell: powershell
+      run: |
+        Start-Process -FilePath "$env:ProgramFiles\TightVNC\tvnserver.exe" `
+            -ArgumentList "-controlapp", "-passwd", "admin", "-allowexternal", "1", "-start" `
+            -WindowStyle Hidden -Wait
+
+    - name: Clone noVNC
+      shell: powershell
+      run: |
+        git clone https://github.com/novnc/noVNC.git
+        cd noVNC
+        git clone https://github.com/novnc/websockify
+        npm install
+
+    - name: Start noVNC
+      shell: powershell
+      run: |
+        cd noVNC
+        Start-Process "node" -ArgumentList "utils/novnc_proxy.js", "--vnc", "localhost:5900", "--listen", "6901"
+        Start-Sleep -Seconds 5
+
+    - name: Download and Start ngrok
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
+        Expand-Archive ngrok.zip -DestinationPath .
+        .\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "http 6901"
+        Start-Sleep -Seconds 10
+
+    - name: Get ngrok Public URL
+      id: ngrok
+      shell: powershell
+      run: |
+        $url = (Invoke-RestMethod http://127.0.0.1:4040/api/tunnels).tunnels[0].public_url
+        echo "NGROK_URL=$url" | Out-File -Append $env:GITHUB_ENV
+        echo "Public noVNC URL: $url"
+
+    - name: Upload noVNC URL to Firebase (Optional)
+      shell: powershell
+      env:
+        FIREBASE_KEY: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+        NGROK_URL: ${{ env.NGROK_URL }}
+        UID: ${{ github.actor }}
+      run: |
+        echo $env:FIREBASE_KEY > creds.json
+        pip install firebase-admin
+        if (Test-Path "upload_url.py") {
+          python upload_url.py
+        } else {
+          Write-Error "upload_url.py not found!"
+          exit 1
+        }
+
+    - name: Output Public Access URL
+      shell: powershell
+      run: |
+        for ($i = 0; $i -lt 30; $i++) {
+          Write-Host "Access noVNC URL: $env:NGROK_URL"
+          Start-Sleep -Seconds 10
+        }
