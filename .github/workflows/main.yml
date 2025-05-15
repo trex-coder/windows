@@ -1,71 +1,63 @@
-name: CI
+name: WebRDP CI
 
-on: [push, workflow_dispatch]
+on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - name: Download ngrok
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y curl unzip python3 python3-pip jq \
-          x11vnc xvfb firefox plasma-desktop sddm kde-spectacle \
-          nodejs npm git net-tools
-    - name: Install noVNC
-      run: |
-        git clone https://github.com/trex-coder/Novnc.git
-        cd Novnc
-        git clone https://github.com/novnc/websockify.git
-        npm install
-    - name: Start KDE Plasma in Xvfb
-      run: |
-        export DISPLAY=:1
-        Xvfb :1 -screen 0 1280x720x16 &
-        sleep 2
-        startplasma-x11 &
-    - name: Start x11vnc
-      run: |
-        export DISPLAY=:1
-        x11vnc -display :1 -nopw -forever -shared -rfbport 5900 &
-    - name: Start noVNC
-      run: |
-        cd Novnc
-        ./utils/novnc_proxy --vnc localhost:5900 --listen 6901 &
-    - name: Download and start ngrok
-      run: |
-        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip -o ngrok.zip
-        unzip ngrok.zip
-        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        nohup ./ngrok http 6901 > ngrok.log &
-        sleep 10
-    - name: Get Ngrok public URL
-      id: ngrok
-      run: |
-        URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-        echo "NGROK_URL=$URL"
-        echo "NGROK_URL=$URL" >> $GITHUB_ENV
-    - name: Upload noVNC URL to Firebase
+    - name: Extract ngrok
+      run: Expand-Archive ngrok.zip
+
+    - name: Auth ngrok
+      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
       env:
-        FIREBASE_KEY: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
-        NGROK_URL: ${{ env.NGROK_URL }}
-        UID: ${{ github.actor }}
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Enable RDP
       run: |
-        echo "$FIREBASE_KEY" > creds.json
-        pip install firebase-admin
-        if [ -f "upload_url.py" ]; then
-          python3 upload_url.py
-        else
-          echo "upload_url.py not found!"
-          exit 1
-        fi
-    - name: Loop output of URL
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+
+    - name: Install Git & Node.js
       run: |
-        while true; do
-          echo "Access URL: ${{ env.NGROK_URL }}"
-          sleep 10
-        done
+        Invoke-WebRequest https://nodejs.org/dist/v18.17.1/node-v18.17.1-x64.msi -OutFile node.msi
+        Start-Process msiexec.exe -ArgumentList '/i', 'node.msi', '/quiet', '/norestart' -Wait
+        choco install git -y
+
+    - name: Clone WebRDP
+      run: git clone https://github.com/Mikej81/WebRDP.git
+
+    - name: Install WebRDP dependencies
+      run: |
+        cd WebRDP
+        npm install
+
+    - name: Start WebRDP server
+      run: |
+        cd WebRDP
+        start /b node app.js
+
+    - name: Start ngrok HTTP tunnel for WebRDP
+      run: start /b .\ngrok\ngrok.exe http 4200
+
+    - name: Wait for ngrok to initialize
+      run: Start-Sleep -Seconds 5
+
+    - name: Keep alive & print WebRDP access URL
+      run: |
+        while ($true) {
+          try {
+            $url = (Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels).tunnels | Where-Object { $_.proto -eq "https" } | Select-Object -ExpandProperty public_url
+            Write-Output "Access WebRDP: $url/rdp/host/127.0.0.1"
+          } catch {
+            Write-Output "Waiting for ngrok tunnel to be ready..."
+          }
+          Start-Sleep -Seconds 10
+        }
