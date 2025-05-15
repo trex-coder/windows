@@ -1,63 +1,42 @@
-name: WebRDP CI
+name: CI
 
-on: [workflow_dispatch]
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: Download ngrok
-      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-
-    - name: Extract ngrok
-      run: Expand-Archive ngrok.zip
-
-    - name: Auth ngrok
-      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-      env:
-        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Enable RDP
+    - name: Enable Remote Desktop
+      shell: powershell
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install Git & Node.js
+    - name: Start Serveo Tunnel and Keep Alive
+      shell: bash
       run: |
-        Invoke-WebRequest https://nodejs.org/dist/v18.17.1/node-v18.17.1-x64.msi -OutFile node.msi
-        Start-Process msiexec.exe -ArgumentList '/i', 'node.msi', '/quiet', '/norestart' -Wait
-        choco install git -y
+        echo "Starting Serveo SSH tunnel..."
 
-    - name: Clone WebRDP
-      run: git clone https://github.com/Mikej81/WebRDP.git
+        # Start SSH Serveo tunnel in background with random public port
+        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N 2>&1 | tee serveo.log &
+        SSH_PID=$!
 
-    - name: Install WebRDP dependencies
-      run: |
-        cd WebRDP
-        npm install
+        echo "Tunnel started with PID $SSH_PID"
+        echo "Waiting for Serveo to assign a public port..."
 
-    - name: Start WebRDP server
-      run: |
-        cd WebRDP
-        start /b node app.js
+        # Wait until the forwarding line appears in logs
+        while ! grep -q 'Forwarding TCP port' serveo.log; do
+          sleep 1
+        done
 
-    - name: Start ngrok HTTP tunnel for WebRDP
-      run: start /b .\ngrok\ngrok.exe http 4200
+        # Extract public forwarding info continuously and print every 30 seconds
+        while kill -0 $SSH_PID 2>/dev/null; do
+          PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
+          echo "Public RDP address: $PUBLIC_ADDR"
+          sleep 30
+        done
 
-    - name: Wait for ngrok to initialize
-      run: Start-Sleep -Seconds 5
-
-    - name: Keep alive & print WebRDP access URL
-      run: |
-        while ($true) {
-          try {
-            $url = (Invoke-RestMethod -Uri http://127.0.0.1:4040/api/tunnels).tunnels | Where-Object { $_.proto -eq "https" } | Select-Object -ExpandProperty public_url
-            Write-Output "Access WebRDP: $url/rdp/host/127.0.0.1"
-          } catch {
-            Write-Output "Waiting for ngrok tunnel to be ready..."
-          }
-          Start-Sleep -Seconds 10
-        }
+        echo "Serveo tunnel closed."
