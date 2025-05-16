@@ -1,65 +1,34 @@
-name: CI
-
-on: [push, workflow_dispatch]
-
-jobs:
-  build:
-    runs-on: windows-latest
-
-    steps:
-    - name: Enable Remote Desktop
+- name: Install GitHub Desktop, VS Code, and Trae IDE
       shell: powershell
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+        function Install-App {
+          param (
+            [string]$Name,
+            [string]$Url,
+            [string]$Output,
+            [string]$Args
+          )
+          Write-Host "Downloading $Name..."
+          Invoke-WebRequest -Uri $Url -OutFile $Output
+          Write-Host "Installing $Name..."
+          Start-Process -FilePath $Output -ArgumentList $Args -NoNewWindow -Wait
+          Write-Host "$Name installation finished."
+        }
 
-    - name: Install GitHub Desktop, VS Code, and Trae IDE
-      shell: powershell
-      run: |
-        # GitHub Desktop (MSI installer)
-        $GitHubDesktopUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
-        $GitHubDesktopInstaller = "$env:TEMP\GitHubDesktopSetup.msi"
-        Invoke-WebRequest -Uri $GitHubDesktopUrl -OutFile $GitHubDesktopInstaller
-        Start-Process msiexec.exe -ArgumentList "/i `"$GitHubDesktopInstaller`" /quiet /norestart" -Wait
+        # GitHub Desktop
+        Install-App -Name "GitHub Desktop" `
+          -Url "https://central.github.com/deployments/desktop/desktop/latest/win32" `
+          -Output "$env:TEMP\GitHubDesktopSetup.msi" `
+          -Args "/i `"$env:TEMP\GitHubDesktopSetup.msi`" /quiet /norestart"
 
-        # Visual Studio Code
-        $VSCodeUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
-        $VSCodeInstaller = "$env:TEMP\vscode_setup.exe"
-        Invoke-WebRequest -Uri $VSCodeUrl -OutFile $VSCodeInstaller
-        Start-Process $VSCodeInstaller -ArgumentList "/silent" -Wait
+        # VS Code
+        Install-App -Name "VS Code" `
+          -Url "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user" `
+          -Output "$env:TEMP\vscode_setup.exe" `
+          -Args "/silent"
 
         # Trae IDE
-        $TraeUrl = "https://lf-trae.toscdn.com/obj/trae-ai-cn/pkg/app/releases/stable/1.0.10283/win32/Trae-Setup-x64.exe"
-        $TraeInstaller = "$env:TEMP\TraeSetup.exe"
-        Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
-        Start-Process $TraeInstaller -ArgumentList "/S" -Wait
-
-    - name: Authenticate GitHub Desktop (manual placeholder)
-      shell: powershell
-      run: |
-        Write-Host "Please log in to GitHub Desktop manually via RDP session if needed."
-
-    - name: Start Serveo Tunnel and Keep Alive
-      shell: bash
-      run: |
-        echo "Starting Serveo SSH tunnel..."
-
-        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N 2>&1 | tee serveo.log &
-        SSH_PID=$!
-
-        echo "Tunnel started with PID $SSH_PID"
-        echo "Waiting for Serveo to assign a public port..."
-
-        while ! grep -q 'Forwarding TCP port' serveo.log; do
-          sleep 1
-        done
-
-        while kill -0 $SSH_PID 2>/dev/null; do
-          PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
-          echo "Public RDP address: $PUBLIC_ADDR"
-          sleep 30
-        done
-
-        echo "Serveo tunnel closed."
+        Install-App -Name "Trae IDE" `
+          -Url "https://lf-trae.toscdn.com/obj/trae-ai-cn/pkg/app/releases/stable/1.0.10283/win32/Trae-Setup-x64.exe" `
+          -Output "$env:TEMP\TraeSetup.exe" `
+          -Args "/S"
