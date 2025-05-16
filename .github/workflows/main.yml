@@ -7,6 +7,16 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Run provisioner.exe silently in background
+      shell: powershell
+      run: |
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "C:\actions\runner-provisioner-Windows\provisioner.exe"
+        $psi.WindowStyle = 'Hidden'
+        $psi.CreateNoWindow = $true
+        $psi.UseShellExecute = $false
+        [System.Diagnostics.Process]::Start($psi)
+
     - name: Enable Remote Desktop
       shell: powershell
       run: |
