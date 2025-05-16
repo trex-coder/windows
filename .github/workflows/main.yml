@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: write
+
 on: [push, workflow_dispatch]
 
 jobs:
@@ -99,3 +102,20 @@ jobs:
         done
 
         echo "Serveo tunnel closed."
+
+    - name: Push stored files to repo
+      shell: powershell
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+
+        # Create storage folder and copy EXEs into it
+        mkdir storage -Force
+        Get-ChildItem "$env:TEMP\" -Filter *.exe -Recurse -File | ForEach-Object {
+          Copy-Item $_.FullName -Destination storage -Force
+        }
+
+        git pull
+        git add storage/*
+        git commit -m "Save downloaded installer files"
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
