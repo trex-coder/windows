@@ -2,52 +2,39 @@ name: Windows-RDP
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   rdp:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v3
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-    - name: Enable Remote Desktop
-      run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+      - name: Enable Remote Desktop
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
 
-    - name: Start Serveo Tunnel
-      run: |
-        nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
-        # wait until port allocated
-        while ((Get-Content serveo.log) -notmatch 'Allocated port') { Start-Sleep -Seconds 1 }
-      shell: powershell
+      - name: Start Serveo Tunnel
+        shell: bash
+        run: |
+          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
+          while ! grep -q "Allocated port" serveo.log; do sleep 1; done
 
-    - name: Upload RDP Address to Firebase
-      env:
-        FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
-      working-directory: windows
-      run: python firebase/upload_data.py rdp_address.txt
+      - name: Upload RDP Address to Firebase
+        run: python windows/firebase/upload_data.py rdp_address.txt
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
 
-    - name: Install Python dependencies
-      working-directory: windows
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: pip install requests firebase-admin
 
-    - name: Keep Alive
-      run: |
-        while ($true) { Start-Sleep -Seconds 60 }
-      shell: powershell
+      - name: Keep Alive
+        run: ping -n 86400 127.0.0.1
 
-    - name: Trigger Guacamole Shutdown
-      run: |
-        curl -X POST https://your-guacamole-shutdown-endpoint
-
+      - name: Trigger Guacamole Shutdown
+        if: ${{ cancelled() || failure() }}
+        run: echo "Shutting down"
