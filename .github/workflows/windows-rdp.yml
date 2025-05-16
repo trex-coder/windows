@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Enable Remote Desktop
         run: |
@@ -22,19 +22,22 @@ jobs:
           while ! grep -q "Allocated port" serveo.log; do sleep 1; done
 
       - name: Upload RDP Address to Firebase
-        run: python windows/firebase/upload_data.py rdp_address.txt
+        run: python upload_data.py rdp_address.txt
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.x'
 
       - name: Install Python dependencies
-        run: pip install requests firebase-admin
+        run: pip install -r requirements.txt
 
       - name: Keep Alive
-        run: ping -n 86400 127.0.0.1
+        run: python fetch_data.py
 
       - name: Trigger Guacamole Shutdown
-        if: ${{ cancelled() || failure() }}
-        run: echo "Shutting down"
+        if: always()
+        run: echo "Shutdown signal goes here"
+
+      - name: Complete job
+        run: echo "✅ RDP is ready. Access credentials uploaded."
