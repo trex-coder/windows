@@ -18,11 +18,11 @@ jobs:
     - name: Install GitHub Desktop, VS Code, and Trae IDE
       shell: powershell
       run: |
-        # GitHub Desktop (static link to avoid auth issues)
-        $GitHubDesktopUrl = "https://github-desktop.s3.amazonaws.com/GitHubDesktopSetup-x64-3.3.9.exe"
-        $GitHubDesktopInstaller = "$env:TEMP\GitHubDesktopSetup.exe"
+        # GitHub Desktop (MSI installer)
+        $GitHubDesktopUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
+        $GitHubDesktopInstaller = "$env:TEMP\GitHubDesktopSetup.msi"
         Invoke-WebRequest -Uri $GitHubDesktopUrl -OutFile $GitHubDesktopInstaller
-        Start-Process $GitHubDesktopInstaller -ArgumentList "/SILENT" -Wait
+        Start-Process msiexec.exe -ArgumentList "/i `"$GitHubDesktopInstaller`" /quiet /norestart" -Wait
 
         # Visual Studio Code
         $VSCodeUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
@@ -36,10 +36,10 @@ jobs:
         Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
         Start-Process $TraeInstaller -ArgumentList "/S" -Wait
 
-    - name: Authenticate GitHub Desktop (Headless placeholder)
+    - name: Authenticate GitHub Desktop (manual placeholder)
       shell: powershell
       run: |
-        Write-Host "GitHub authentication must be done manually via RDP on first use."
+        Write-Host "Please log in to GitHub Desktop manually via RDP session if needed."
 
     - name: Start Serveo Tunnel and Keep Alive
       shell: bash
