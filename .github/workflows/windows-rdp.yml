@@ -1,6 +1,7 @@
 name: Windows-RDP
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   rdp:
@@ -8,52 +9,49 @@ jobs:
 
     steps:
     - name: Enable Remote Desktop
-      shell: powershell
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Start Serveo Tunnel
-      shell: bash
       run: |
         nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
         sleep 5
         echo "Contents of serveo.log:"
         cat serveo.log
 
-        while ! grep -q 'Forwarding TCP port' serveo.log; do 
-          echo "Waiting for tunnel forwarding port..."
+        while ! grep -q 'Allocated port' serveo.log; do
+          echo "Waiting for tunnel allocated port..."
           sleep 1
           cat serveo.log
         done
 
-        PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
+        PORT=$(grep 'Allocated port' serveo.log | tail -1 | sed -E 's/.*Allocated port ([0-9]+).*/\1/')
+        PUBLIC_ADDR="serveo.net:$PORT"
+
         echo "RDP Address: $PUBLIC_ADDR"
         echo $PUBLIC_ADDR > rdp_address.txt
 
     - name: Upload RDP Address to Firebase
-      shell: bash
-      run: |
-        python firebase/upload_data.py rdpAddress "$(cat rdp_address.txt)"
+      uses: w9jds/firebase-action@v2.2.0
+      with:
+        args: database:set /rdpAddress "$(cat rdp_address.txt)"
+      env:
+        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-    - uses: actions/setup-python@v4
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
     - name: Install Python dependencies
-      run: pip install -r requirements.txt
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Keep Alive
-      shell: bash
       run: |
-        echo "Keeping the workflow alive for RDP session..."
         while true; do sleep 60; done
 
     - name: Trigger Guacamole Shutdown
-      if: always()
-      shell: bash
       run: |
-        python firebase/upload_data.py guacShutdown true
-
+        # Your shutdown command here if needed
