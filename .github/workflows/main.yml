@@ -15,38 +15,46 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install GitHub Desktop, VS Code, and Trae IDE with Desktop Shortcuts
+    - name: Install GitHub Desktop, VS Code, Trae IDE (Silent Mode + Desktop Icons)
       shell: powershell
       run: |
+        $ErrorActionPreference = "Stop"
         $publicDesktop = "$Env:Public\Desktop"
 
-        # GitHub Desktop
+        Write-Output "`n--- Installing GitHub Desktop ---"
         $GitHubDesktopUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32"
         $GitHubDesktopInstaller = "$env:TEMP\GitHubDesktopSetup.msi"
         Invoke-WebRequest -Uri $GitHubDesktopUrl -OutFile $GitHubDesktopInstaller
-        Start-Process msiexec.exe -ArgumentList "/i `"$GitHubDesktopInstaller`" /quiet /norestart" -Wait
+        Start-Process msiexec.exe -ArgumentList "/i `"$GitHubDesktopInstaller`" /quiet /norestart" -Wait -NoNewWindow
         Start-Sleep -Seconds 10
         Copy-Item "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs\GitHub, Inc\GitHub Desktop.lnk" $publicDesktop -ErrorAction SilentlyContinue
 
-        # VS Code
+        Write-Output "`n--- Installing Visual Studio Code ---"
         $VSCodeUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
         $VSCodeInstaller = "$env:TEMP\vscode_setup.exe"
         Invoke-WebRequest -Uri $VSCodeUrl -OutFile $VSCodeInstaller
-        Start-Process $VSCodeInstaller -ArgumentList "/silent" -Wait
-        Start-Sleep -Seconds 10
+        $vscode = Start-Process -FilePath $VSCodeInstaller -ArgumentList "/VERYSILENT /NORESTART" -PassThru
+        if (!$vscode.WaitForExit(90 * 1000)) {
+          Write-Output "VS Code installer timeout. Killing process..."
+          $vscode.Kill()
+        }
+        Start-Sleep -Seconds 5
         Copy-Item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Visual Studio Code\Visual Studio Code.lnk" $publicDesktop -ErrorAction SilentlyContinue
 
-        # Trae IDE
+        Write-Output "`n--- Installing Trae IDE ---"
         $TraeUrl = "https://lf-trae.toscdn.com/obj/trae-ai-cn/pkg/app/releases/stable/1.0.10283/win32/Trae-Setup-x64.exe"
         $TraeInstaller = "$env:TEMP\TraeSetup.exe"
         Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
-        Start-Process $TraeInstaller -ArgumentList "/S" -Wait
-        Start-Sleep -Seconds 10
+        $trae = Start-Process -FilePath $TraeInstaller -ArgumentList "/S" -PassThru
+        if (!$trae.WaitForExit(90 * 1000)) {
+          Write-Output "Trae installer timeout. Killing process..."
+          $trae.Kill()
+        }
+        Start-Sleep -Seconds 5
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*Trae*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
 
-    - name: Authenticate GitHub Desktop (manual placeholder)
-      run: echo "Manually authenticate GitHub Desktop via RDP"
+        Write-Output "`nAll applications installed and shortcuts placed on desktop."
 
     - name: Start Serveo Tunnel and Keep Alive
       shell: bash
