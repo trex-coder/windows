@@ -1,11 +1,13 @@
+# File: firebase/fetch_data.py
 import requests
 import sys
 
-if len(sys.argv) != 3:
-    print("Usage: python fetch_data.py <firebase_url> <key>")
+FIREBASE_URL = "https://guacamole-a69bd-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+if len(sys.argv) != 2:
+    print("Usage: python fetch_data.py <key>")
     sys.exit(1)
 
-firebase_url = sys.argv[1].rstrip('/')
-key = sys.argv[2]
-res = requests.get(f"{firebase_url}/{key}.json")
+key = sys.argv[1]
+res = requests.get(f"{FIREBASE_URL.rstrip('/')}/{key}.json")
 print(res.text.strip('"'))
