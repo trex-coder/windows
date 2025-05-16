@@ -15,15 +15,6 @@ jobs:
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
 
-      - name: Start Serveo Tunnel
-        shell: bash
-        run: |
-          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
-          while ! grep -q "Allocated port" serveo.log; do sleep 1; done
-
-      - name: Upload RDP Address to Firebase
-        run: python upload_data.py rdp_address.txt
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -31,6 +22,16 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
+
+      - name: Start Serveo Tunnel
+        shell: bash
+        run: |
+          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
+          while ! grep -q "Allocated port" serveo.log; do sleep 1; done
+          grep "Allocated port" serveo.log | tee rdp_address.txt
+
+      - name: Upload RDP Address to Firebase
+        run: python upload_data.py rdp_address.txt
 
       - name: Keep Alive
         run: python fetch_data.py
