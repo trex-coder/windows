@@ -38,11 +38,12 @@ jobs:
         $TraeInstaller = "$env:TEMP\TraeSetup.exe"
         Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
         $trae = Start-Process -FilePath $TraeInstaller -ArgumentList "/VERYSILENT /NORESTART" -PassThru
-        if (!$trae.WaitForExit(120 * 1000)) {
-          Write-Output "Trae installer stuck. Killing process..."
-          Stop-Process -Name "Trae*" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 20
+        if (!$trae.HasExited) {
+          Write-Output "Force closing Trae setup if it's still running..."
+          Stop-Process -Id $trae.Id -Force -ErrorAction SilentlyContinue
         }
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 3
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*Trae*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
 
