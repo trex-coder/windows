@@ -2,54 +2,52 @@ name: Windows-RDP
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   rdp:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    - name: Checkout Repo
+      uses: actions/checkout@v3
 
-      - name: Enable Remote Desktop
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+    - name: Enable Remote Desktop
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
 
-      - name: Start Serveo Tunnel
-        shell: bash
-        run: |
-          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
-          sleep 5
-          echo "Contents of serveo.log:"
-          cat serveo.log
+    - name: Start Serveo Tunnel
+      run: |
+        nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
+        # wait until port allocated
+        while ((Get-Content serveo.log) -notmatch 'Allocated port') { Start-Sleep -Seconds 1 }
+      shell: powershell
 
-          while ! grep -q 'Allocated port' serveo.log; do
-            echo "Waiting for tunnel allocated port..."
-            sleep 1
-            cat serveo.log
-          done
+    - name: Upload RDP Address to Firebase
+      env:
+        FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+      working-directory: windows
+      run: python firebase/upload_data.py rdp_address.txt
 
-          PORT=$(grep 'Allocated port' serveo.log | tail -1 | sed -E 's/.*Allocated port ([0-9]+).*/\1/')
-          PUBLIC_ADDR="serveo.net:$PORT"
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-          echo "RDP Address: $PUBLIC_ADDR"
-          echo $PUBLIC_ADDR > rdp_address.txt
+    - name: Install Python dependencies
+      working-directory: windows
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.x
+    - name: Keep Alive
+      run: |
+        while ($true) { Start-Sleep -Seconds 60 }
+      shell: powershell
 
-      - name: Install Python dependencies
-        run: pip install --upgrade firebase-admin
+    - name: Trigger Guacamole Shutdown
+      run: |
+        curl -X POST https://your-guacamole-shutdown-endpoint
 
-      - name: Upload RDP Address to Firebase
-        env:
-          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
-        run: python windows/firebase/upload_data.py rdp_address.txt
-
-      - name: Keep Alive
-        run: sleep 3600
-
-      - name: Trigger Guacamole Shutdown
-        run: echo "Shutdown Triggered"
