@@ -20,7 +20,15 @@ jobs:
       run: |
         nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
         sleep 5
-        while ! grep -q 'Forwarding TCP port' serveo.log; do sleep 1; done
+        echo "Contents of serveo.log:"
+        cat serveo.log
+
+        while ! grep -q 'Forwarding TCP port' serveo.log; do 
+          echo "Waiting for tunnel forwarding port..."
+          sleep 1
+          cat serveo.log
+        done
+
         PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
         echo "RDP Address: $PUBLIC_ADDR"
         echo $PUBLIC_ADDR > rdp_address.txt
@@ -35,9 +43,7 @@ jobs:
         python-version: '3.x'
 
     - name: Install Python dependencies
-      shell: bash
-      run: |
-        pip install -r requirements.txt
+      run: pip install -r requirements.txt
 
     - name: Keep Alive
       shell: bash
@@ -50,3 +56,4 @@ jobs:
       shell: bash
       run: |
         python firebase/upload_data.py guacShutdown true
+
