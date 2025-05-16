@@ -1,8 +1,5 @@
 name: CI
 
-permissions:
-  contents: write
-
 on: [push, workflow_dispatch]
 
 jobs:
@@ -80,6 +77,28 @@ jobs:
 
         Write-Output "`nApplications installed and shortcuts placed on desktop."
 
+    - name: Mount GitHub Repo as Network Drive using HubFS
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Stop"
+        Write-Output "`n--- Installing WinFsp and HubFS ---"
+
+        # Download and install WinFsp (required by HubFS)
+        $winfspInstaller = "$env:TEMP\winfsp.msi"
+        Invoke-WebRequest -Uri "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.msi" -OutFile $winfspInstaller
+        Start-Process msiexec.exe -ArgumentList "/i `"$winfspInstaller`" /quiet /norestart" -Wait
+
+        # Download HubFS CLI
+        $hubfsZip = "$env:TEMP\hubfs.zip"
+        Invoke-WebRequest -Uri "https://github.com/winfsp/hubfs/releases/download/v0.1/hubfs-0.1.zip" -OutFile $hubfsZip
+        Expand-Archive -Path $hubfsZip -DestinationPath "$env:TEMP\hubfs" -Force
+
+        # Mount the current repo workspace to Z: drive
+        & "$env:TEMP\hubfs\hubfs.exe" -o allow_other "${env:GITHUB_WORKSPACE}" "Z:"
+
+        Write-Output "`n--- GitHub repo mounted as Z: drive ---"
+        Get-PSDrive Z
+
     - name: Start Serveo Tunnel and Keep Alive
       shell: bash
       run: |
@@ -102,20 +121,3 @@ jobs:
         done
 
         echo "Serveo tunnel closed."
-
-    - name: Push stored files to repo
-      shell: powershell
-      run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions"
-
-        # Create storage folder and copy EXEs into it
-        mkdir storage -Force
-        Get-ChildItem "$env:TEMP\" -Filter *.exe -Recurse -File | ForEach-Object {
-          Copy-Item $_.FullName -Destination storage -Force
-        }
-
-        git pull
-        git add storage/*
-        git commit -m "Save downloaded installer files"
-        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
