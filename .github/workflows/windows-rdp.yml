@@ -1,3 +1,5 @@
+---
+# File: .github/workflows/windows-rdp.yml
 name: Windows-RDP
 
 on: [workflow_dispatch]
@@ -26,15 +28,24 @@ jobs:
         echo "RDP Address: $PUBLIC_ADDR"
         echo $PUBLIC_ADDR > rdp_address.txt
 
-    - name: Upload RDP Address to Firebase
-      run: |
-        python firebase/upload_rdp_address.py https://your-project.firebaseio.com "$(<rdp_address.txt)"
-      shell: bash
-      env:
-        PYTHONPATH: .
-
     - uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - name: Install requirements
+      run: pip install -r firebase/requirements.txt
+
+    - name: Upload RDP Address to Firebase
+      run: |
+        python firebase/upload_data.py https://your-project.firebaseio.com rdpAddress "$(<rdp_address.txt)"
+
+    - name: Trigger Guacamole Shutdown (on exit)
+      if: always()
+      run: |
+        python firebase/upload_data.py https://your-project.firebaseio.com guacShutdown true
+
+    - name: Keep Alive
+      shell: bash
+      run: |
+        echo "Keeping the workflow alive for RDP session..."
+        while true; do sleep 60; done
