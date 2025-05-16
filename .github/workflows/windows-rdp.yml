@@ -6,7 +6,11 @@ on:
 jobs:
   rdp:
     runs-on: windows-latest
+
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
       - name: Enable Remote Desktop
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -31,7 +35,7 @@ jobs:
           echo "RDP Address: $PUBLIC_ADDR"
           echo $PUBLIC_ADDR > rdp_address.txt
 
-      - name: Upload RDP Address to Firebase
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.x
@@ -42,12 +46,10 @@ jobs:
       - name: Upload RDP Address to Firebase
         env:
           FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
-        run: |
-          python upload_data.py rdp_address.txt
+        run: python windows/firebase/upload_data.py rdp_address.txt
 
       - name: Keep Alive
         run: sleep 3600
 
       - name: Trigger Guacamole Shutdown
         run: echo "Shutdown Triggered"
-
