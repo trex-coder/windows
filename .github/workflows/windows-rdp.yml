@@ -18,26 +18,24 @@ jobs:
     - name: Start Serveo Tunnel
       shell: bash
       run: |
-        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N 2>&1 | tee serveo.log &
-        SSH_PID=$!
-        echo $SSH_PID > ssh_pid.txt
-        sleep 10
-
+        nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N > serveo.log 2>&1 &
+        sleep 5
         while ! grep -q 'Forwarding TCP port' serveo.log; do sleep 1; done
         PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
         echo "RDP Address: $PUBLIC_ADDR"
         echo $PUBLIC_ADDR > rdp_address.txt
 
     - name: Upload RDP Address to Firebase
+      shell: bash
       run: |
         python firebase/upload_data.py rdpAddress "$(cat rdp_address.txt)"
-      shell: bash
 
     - uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - name: Install Python dependencies
+      run: pip install -r requirements.txt
 
     - name: Keep Alive
       shell: bash
@@ -47,7 +45,6 @@ jobs:
 
     - name: Trigger Guacamole Shutdown
       if: always()
+      shell: bash
       run: |
         python firebase/upload_data.py guacShutdown true
-      shell: bash
-
