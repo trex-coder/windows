@@ -18,15 +18,10 @@ jobs:
     - name: Install GitHub Desktop, VS Code, and Trae IDE
       shell: powershell
       run: |
-        # GitHub Desktop
-        $GitHubDesktopUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32/GitHubDesktopSetup.exe"
+        # GitHub Desktop (static link to avoid auth issues)
+        $GitHubDesktopUrl = "https://github-desktop.s3.amazonaws.com/GitHubDesktopSetup-x64-3.3.9.exe"
         $GitHubDesktopInstaller = "$env:TEMP\GitHubDesktopSetup.exe"
-        try {
-          Start-BitsTransfer -Source $GitHubDesktopUrl -Destination $GitHubDesktopInstaller -ErrorAction Stop
-        } catch {
-          Write-Host "BITS failed, fallback to Invoke-WebRequest..."
-          Invoke-WebRequest -Uri $GitHubDesktopUrl -OutFile $GitHubDesktopInstaller
-        }
+        Invoke-WebRequest -Uri $GitHubDesktopUrl -OutFile $GitHubDesktopInstaller
         Start-Process $GitHubDesktopInstaller -ArgumentList "/SILENT" -Wait
 
         # Visual Studio Code
