@@ -1,31 +1,54 @@
+---
+# File: .github/workflows/guacamole-host.yml
 name: Guacamole-Host
 
 on: [workflow_dispatch]
 
 jobs:
-  guac:
+  host:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io docker-compose
+
+    - name: Clone Guacamole Docker
+      run: |
+        git clone https://github.com/boschkundendienst/guacamole-docker-compose.git
+        cd guacamole-docker-compose
+        sudo docker-compose up -d
+
+    - uses: actions/setup-python@v4
       with:
         python-version: '3.x'
 
-    - run: pip install -r requirements.txt
+    - name: Install requirements
+      run: pip install -r firebase/requirements.txt
 
-    - name: Fetch RDP Address from Firebase
-      id: fetch
+    - name: Wait for RDP Address from Firebase and Loop Output
+      shell: bash
       run: |
-        RDP_ADDR=$(python firebase/fetch_rdp_address.py https://your-project.firebaseio.com)
-        echo "RDP_ADDR=$RDP_ADDR" >> $GITHUB_ENV
+        while true; do
+          RDP_ADDR=$(python firebase/fetch_data.py https://your-project.firebaseio.com rdpAddress)
+          if [[ "$RDP_ADDR" == serveo.net:* ]]; then
+            echo "Guacamole URL: http://localhost:8080/guacamole/#/client/c/$RDP_ADDR"
+            break
+          fi
+          echo "Waiting for RDP address..."
+          sleep 10
+        done
 
-    - name: Start Apache Guacamole
-      run: |
-        docker run -d --name guac --restart always -p 8080:8080 -e GUAC_USER=guac -e GUAC_PASS=guac oznu/guacamole
-        sleep 10
+        # Keep container alive until signal
+        while true; do
+          GUAC_SHUTDOWN=$(python firebase/fetch_data.py https://your-project.firebaseio.com guacShutdown)
+          if [[ "$GUAC_SHUTDOWN" == true ]]; then
+            echo "Shutting down Guacamole host..."
+            cd guacamole-docker-compose
+            sudo docker-compose down
+            break
+          fi
+          sleep 30
+        done
 
-    - name: Tunnel Guacamole via Serveo
-      run: |
-        ssh -o StrictHostKeyChecking=no -R 80:localhost:8080 serveo.net -N &
-        echo "Access RDP in browser: http://yourname.serveo.net/#/?username=guac&password=guac"
