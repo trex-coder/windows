@@ -1,54 +1,58 @@
----
-# File: .github/workflows/guacamole-host.yml
 name: Guacamole-Host
 
 on: [workflow_dispatch]
 
 jobs:
-  host:
+  guac:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install dependencies
+    - name: Setup Docker
       run: |
         sudo apt-get update
         sudo apt-get install -y docker.io docker-compose
+        sudo systemctl start docker
+        sudo systemctl enable docker
 
-    - name: Clone Guacamole Docker
+    - name: Start Guacamole Containers
       run: |
-        git clone https://github.com/boschkundendienst/guacamole-docker-compose.git
-        cd guacamole-docker-compose
-        sudo docker-compose up -d
+        docker network create guacnet || true
+        docker run -d --name guacd --net guacnet guacamole/guacd
+        docker run -d --name guacamole --net guacnet -p 8080:8080 \
+          -e GUACD_HOSTNAME=guacd \
+          -e MYSQL_HOSTNAME= \
+          guacamole/guacamole
 
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-
-    - name: Install requirements
-      run: pip install -r firebase/requirements.txt
-
-    - name: Wait for RDP Address from Firebase and Loop Output
+    - name: Wait for RDP Address in Firebase
       shell: bash
       run: |
+        echo "Waiting for RDP address in Firebase..."
         while true; do
-          RDP_ADDR=$(python firebase/fetch_data.py https://your-project.firebaseio.com rdpAddress)
-          if [[ "$RDP_ADDR" == serveo.net:* ]]; then
-            echo "Guacamole URL: http://localhost:8080/guacamole/#/client/c/$RDP_ADDR"
+          RDP_ADDR=$(python firebase/fetch_data.py rdpAddress)
+          if [ "$RDP_ADDR" != "null" ] && [ -n "$RDP_ADDR" ]; then
+            echo "RDP Address found: $RDP_ADDR"
             break
           fi
-          echo "Waiting for RDP address..."
-          sleep 10
+          sleep 5
         done
 
-        # Keep container alive until signal
+    - name: Output Guacamole URL
+      run: |
+        echo "You can access RDP via Guacamole at: http://localhost:8080/#/client/${RDP_ADDR}"
+        # In real deploy, replace localhost with public IP/domain.
+
+    - name: Monitor Shutdown Flag and Cleanup
+      shell: bash
+      run: |
+        echo "Monitoring shutdown flag..."
         while true; do
-          GUAC_SHUTDOWN=$(python firebase/fetch_data.py https://your-project.firebaseio.com guacShutdown)
-          if [[ "$GUAC_SHUTDOWN" == true ]]; then
-            echo "Shutting down Guacamole host..."
-            cd guacamole-docker-compose
-            sudo docker-compose down
+          FLAG=$(python firebase/fetch_data.py guacShutdown)
+          echo "Shutdown flag: $FLAG"
+          if [ "$FLAG" == "true" ]; then
+            echo "Shutdown flag detected. Stopping Guacamole..."
+            docker stop guacamole guacd
+            docker rm guacamole guacd
             break
           fi
-          sleep 30
+          sleep 20
         done
-
