@@ -18,7 +18,6 @@ jobs:
         $psi.UseShellExecute = $true
         [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-        # Keep-alive loop
         while ($true) {
             Start-Sleep -Seconds 30
         }
@@ -77,37 +76,12 @@ jobs:
 
         Write-Output "`nApplications installed and shortcuts placed on desktop."
 
-    - name: Mount GitHub Repo as Network Drive using HubFS
+    - name: Minimize All Windows
       shell: powershell
       run: |
-        $ErrorActionPreference = "Stop"
-        Write-Output "`n--- Installing WinFsp and HubFS ---"
-
-        function DownloadWithRetry($url, $dest, $retries = 3) {
-          for ($i = 0; $i -lt $retries; $i++) {
-            try {
-              Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
-              return
-            } catch {
-              Write-Host "Download failed, retrying ($($i + 1)/$retries)..."
-              Start-Sleep -Seconds 5
-            }
-          }
-          throw "Failed to download after $retries attempts: $url"
-        }
-
-        $winfspInstaller = "$env:TEMP\winfsp.msi"
-        DownloadWithRetry "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.msi" $winfspInstaller
-        Start-Process msiexec.exe -ArgumentList "/i `"$winfspInstaller`" /quiet /norestart" -Wait
-
-        $hubfsZip = "$env:TEMP\hubfs.zip"
-        DownloadWithRetry "https://github.com/winfsp/hubfs/releases/download/v0.1/hubfs-0.1.zip" $hubfsZip
-        Expand-Archive -Path $hubfsZip -DestinationPath "$env:TEMP\hubfs" -Force
-
-        & "$env:TEMP\hubfs\hubfs.exe" -o allow_other "${env:GITHUB_WORKSPACE}" "Z:"
-
-        Write-Output "`n--- GitHub repo mounted as Z: drive ---"
-        Get-PSDrive Z
+        $vbs = "$env:TEMP\minimize.vbs"
+        Set-Content -Path $vbs -Value 'Set shell = CreateObject("Shell.Application") : shell.MinimizeAll'
+        cscript.exe //nologo $vbs
 
     - name: Start Serveo Tunnel and Keep Alive
       shell: bash
