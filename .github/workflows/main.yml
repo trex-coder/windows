@@ -7,35 +7,24 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Download vdesk.exe and launch provisioner on Desktop 2
+    - name: Run provisioner.exe silently in background (stay alive & hidden)
       shell: powershell
       run: |
-        $vdeskUrl = "https://raw.githubusercontent.com/TreB1e/vdesk-mirror/main/vdesk.exe"
-        $vdeskPath = "$env:TEMP\vdesk.exe"
+        $jobScript = @'
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "C:\actions\runner-provisioner-Windows\provisioner.exe"
+        $psi.WindowStyle = "Hidden"
+        $psi.CreateNoWindow = $true
+        $psi.UseShellExecute = $true
+        [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-        $attempt = 0
-        $maxAttempts = 3
-        do {
-          try {
-            $attempt++
-            Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath -ErrorAction Stop
-            Write-Output "vdesk.exe downloaded successfully."
-            break
-          } catch {
-            Write-Output "Attempt $attempt failed. Retrying in 5s..."
-            Start-Sleep -Seconds 5
-          }
-        } while ($attempt -lt $maxAttempts)
-
-        if (-not (Test-Path $vdeskPath)) {
-          throw "Failed to download vdesk.exe after $maxAttempts attempts."
+        while ($true) {
+            Start-Sleep -Seconds 30
         }
+        '@
 
-        $provisionerPath = "C:\actions\runner-provisioner-Windows\provisioner.exe"
-
-        & $vdeskPath on:2 run:"$provisionerPath" noswitch
-
-        Write-Output "Provisioner launched on Desktop 2 using vdesk."
+        $job = Start-Job -ScriptBlock ([ScriptBlock]::Create($jobScript))
+        Write-Output "Provisioner launched in background job. Job ID: $($job.Id)"
 
     - name: Enable Remote Desktop
       shell: powershell
@@ -45,15 +34,23 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
+    - name: Install VDesk for Virtual Desktop control
+      shell: powershell
+      run: |
+        $vdeskUrl = "https://github.com/eksime/VDesk/releases/download/v1.2.0/VDeskSetup.msi"
+        $vdeskPath = "$env:TEMP\VDeskSetup.msi"
+        Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath
+        Start-Process msiexec.exe -ArgumentList "/i `"$vdeskPath`" /quiet /norestart" -Wait
+
     - name: Set Desktop Wallpaper
       shell: powershell
       run: |
         $imgPath = "$env:TEMP\wallpaper.jpg"
-        Invoke-WebRequest -Uri 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=1470&auto=format&fit=crop' -OutFile $imgPath
+        Invoke-WebRequest -Uri 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' -OutFile $imgPath
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-    - name: Install Visual Studio Code, Trae IDE, and GitHub Desktop
+    - name: Install VS Code, Trae IDE, GitHub Desktop (on Desktop 2)
       shell: powershell
       run: |
         $ErrorActionPreference = "Stop"
@@ -63,17 +60,15 @@ jobs:
         $VSCodeUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
         $VSCodeInstaller = "$env:TEMP\vscode_setup.exe"
         Invoke-WebRequest -Uri $VSCodeUrl -OutFile $VSCodeInstaller
-        $vscode = Start-Process -FilePath $VSCodeInstaller -ArgumentList "/VERYSILENT /NORESTART /MERGETASKS=!runcode" -PassThru
-        if (!$vscode.WaitForExit(90 * 1000)) { $vscode.Kill() }
+        Start-Process "vdesk" -ArgumentList "/switch:2 /run:`"$VSCodeInstaller`" /VERYSILENT /NORESTART /MERGETASKS=!runcode" -Wait
         Copy-Item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Visual Studio Code\Visual Studio Code.lnk" $publicDesktop -ErrorAction SilentlyContinue
 
         Write-Output "`n--- Installing Trae IDE ---"
         $TraeUrl = "https://lf-trae.toscdn.com/obj/trae-ai-cn/pkg/app/releases/stable/1.0.10283/win32/Trae-Setup-x64.exe"
         $TraeInstaller = "$env:TEMP\TraeSetup.exe"
         Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
-        $trae = Start-Process -FilePath $TraeInstaller -ArgumentList "/VERYSILENT /NORESTART" -PassThru
+        Start-Process "vdesk" -ArgumentList "/switch:2 /run:`"$TraeInstaller`" /VERYSILENT /NORESTART" -Wait
         Start-Sleep -Seconds 20
-        if (!$trae.HasExited) { Stop-Process -Id $trae.Id -Force }
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*Trae*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
 
@@ -81,11 +76,11 @@ jobs:
         $GHUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
         $GHInstaller = "$env:TEMP\githubdesktop.msi"
         Invoke-WebRequest -Uri $GHUrl -OutFile $GHInstaller
-        Start-Process msiexec.exe -ArgumentList "/i `"$GHInstaller`" /quiet /norestart" -Wait
+        Start-Process "vdesk" -ArgumentList "/switch:2 /run:`"msiexec.exe`" /i `"$GHInstaller`" /quiet /norestart" -Wait
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*GitHub Desktop*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
 
-        Write-Output "`nApplications installed and shortcuts placed on desktop."
+        Write-Output "`nApplications installed on Desktop 2."
 
     - name: Minimize All Windows
       shell: powershell
