@@ -7,24 +7,35 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Run provisioner.exe silently in background (stay alive & hidden)
+    - name: Download vdesk.exe and launch provisioner on Desktop 2
       shell: powershell
       run: |
-        $jobScript = @'
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "C:\actions\runner-provisioner-Windows\provisioner.exe"
-        $psi.WindowStyle = "Hidden"
-        $psi.CreateNoWindow = $true
-        $psi.UseShellExecute = $true
-        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        $vdeskUrl = "https://raw.githubusercontent.com/TreB1e/vdesk-mirror/main/vdesk.exe"
+        $vdeskPath = "$env:TEMP\vdesk.exe"
 
-        while ($true) {
-            Start-Sleep -Seconds 30
+        $attempt = 0
+        $maxAttempts = 3
+        do {
+          try {
+            $attempt++
+            Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath -ErrorAction Stop
+            Write-Output "vdesk.exe downloaded successfully."
+            break
+          } catch {
+            Write-Output "Attempt $attempt failed. Retrying in 5s..."
+            Start-Sleep -Seconds 5
+          }
+        } while ($attempt -lt $maxAttempts)
+
+        if (-not (Test-Path $vdeskPath)) {
+          throw "Failed to download vdesk.exe after $maxAttempts attempts."
         }
-        '@
 
-        $job = Start-Job -ScriptBlock ([ScriptBlock]::Create($jobScript))
-        Write-Output "Provisioner launched in background job. Job ID: $($job.Id)"
+        $provisionerPath = "C:\actions\runner-provisioner-Windows\provisioner.exe"
+
+        & $vdeskPath on:2 run:"$provisionerPath" noswitch
+
+        Write-Output "Provisioner launched on Desktop 2 using vdesk."
 
     - name: Enable Remote Desktop
       shell: powershell
@@ -34,21 +45,11 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Download and switch to Desktop 2 using vdesk.exe
-      shell: powershell
-      run: |
-        $vdeskUrl = "https://github.com/eksime/VDesk/releases/download/v1.2.1/vdesk.exe"
-        $vdeskPath = "$env:TEMP\vdesk.exe"
-        Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath
-
-        # Switch to Desktop 2
-        Start-Process $vdeskPath -ArgumentList "/switch:2"
-
     - name: Set Desktop Wallpaper
       shell: powershell
       run: |
         $imgPath = "$env:TEMP\wallpaper.jpg"
-        Invoke-WebRequest -Uri 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' -OutFile $imgPath
+        Invoke-WebRequest -Uri 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=1470&auto=format&fit=crop' -OutFile $imgPath
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
