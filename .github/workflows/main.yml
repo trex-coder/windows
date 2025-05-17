@@ -42,7 +42,7 @@ jobs:
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-    - name: Install Visual Studio Code, Trae IDE, GitHub Desktop, and Android Studio
+    - name: Install Visual Studio Code, Trae IDE, and GitHub Desktop
       shell: powershell
       run: |
         $ErrorActionPreference = "Stop"
@@ -73,20 +73,6 @@ jobs:
         Start-Process msiexec.exe -ArgumentList "/i `"$GHInstaller`" /quiet /norestart" -Wait
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*GitHub Desktop*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
-
-        Write-Output "`n--- Installing Android Studio ---"
-        $ASUrl = "https://redirector.gvt1.com/edgedl/android/studio/install/2023.3.1.18/android-studio-2023.3.1.18-windows.exe"
-        $ASInstaller = "$env:TEMP\androidstudio.exe"
-        Invoke-WebRequest -Uri $ASUrl -OutFile $ASInstaller
-        $as = Start-Process -FilePath $ASInstaller -ArgumentList "/S" -PassThru
-        Start-Sleep -Seconds 60
-        if (!$as.HasExited) { Stop-Process -Id $as.Id -Force }
-
-        Write-Output "`n--- Installing SDK Components via sdkmanager ---"
-        $sdkManager = "C:\Program Files\Android\Android Studio\cmdline-tools\latest\bin\sdkmanager.bat"
-        if (Test-Path $sdkManager) {
-          & $sdkManager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "emulator" "cmdline-tools;latest" --sdk_root="C:\Users\runneradmin\AppData\Local\Android\Sdk"
-        }
 
         Write-Output "`nApplications installed and shortcuts placed on desktop."
 
