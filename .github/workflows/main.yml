@@ -34,6 +34,16 @@ jobs:
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
         Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
+    - name: Download and switch to Desktop 2 using vdesk.exe
+      shell: powershell
+      run: |
+        $vdeskUrl = "https://github.com/eksime/VDesk/releases/download/v1.2.1/vdesk.exe"
+        $vdeskPath = "$env:TEMP\vdesk.exe"
+        Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath
+
+        # Switch to Desktop 2
+        Start-Process $vdeskPath -ArgumentList "/switch:2"
+
     - name: Set Desktop Wallpaper
       shell: powershell
       run: |
