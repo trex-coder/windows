@@ -42,7 +42,7 @@ jobs:
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-    - name: Install VS Code and Trae IDE (Silent Mode + Desktop Icons)
+    - name: Install Visual Studio Code, Trae IDE, GitHub Desktop, and Android Studio
       shell: powershell
       run: |
         $ErrorActionPreference = "Stop"
@@ -53,11 +53,7 @@ jobs:
         $VSCodeInstaller = "$env:TEMP\vscode_setup.exe"
         Invoke-WebRequest -Uri $VSCodeUrl -OutFile $VSCodeInstaller
         $vscode = Start-Process -FilePath $VSCodeInstaller -ArgumentList "/VERYSILENT /NORESTART /MERGETASKS=!runcode" -PassThru
-        if (!$vscode.WaitForExit(90 * 1000)) {
-          Write-Output "VS Code installer timeout. Killing process..."
-          $vscode.Kill()
-        }
-        Start-Sleep -Seconds 5
+        if (!$vscode.WaitForExit(90 * 1000)) { $vscode.Kill() }
         Copy-Item "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Visual Studio Code\Visual Studio Code.lnk" $publicDesktop -ErrorAction SilentlyContinue
 
         Write-Output "`n--- Installing Trae IDE ---"
@@ -66,13 +62,31 @@ jobs:
         Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
         $trae = Start-Process -FilePath $TraeInstaller -ArgumentList "/VERYSILENT /NORESTART" -PassThru
         Start-Sleep -Seconds 20
-        if (!$trae.HasExited) {
-          Write-Output "Force closing Trae setup if it's still running..."
-          Stop-Process -Id $trae.Id -Force -ErrorAction SilentlyContinue
-        }
-        Start-Sleep -Seconds 3
+        if (!$trae.HasExited) { Stop-Process -Id $trae.Id -Force }
         Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*Trae*.lnk" |
           ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
+
+        Write-Output "`n--- Installing GitHub Desktop ---"
+        $GHUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
+        $GHInstaller = "$env:TEMP\githubdesktop.msi"
+        Invoke-WebRequest -Uri $GHUrl -OutFile $GHInstaller
+        Start-Process msiexec.exe -ArgumentList "/i `"$GHInstaller`" /quiet /norestart" -Wait
+        Get-ChildItem "$Env:ProgramData\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter "*GitHub Desktop*.lnk" |
+          ForEach-Object { Copy-Item $_.FullName $publicDesktop -ErrorAction SilentlyContinue }
+
+        Write-Output "`n--- Installing Android Studio ---"
+        $ASUrl = "https://redirector.gvt1.com/edgedl/android/studio/install/2023.3.1.18/android-studio-2023.3.1.18-windows.exe"
+        $ASInstaller = "$env:TEMP\androidstudio.exe"
+        Invoke-WebRequest -Uri $ASUrl -OutFile $ASInstaller
+        $as = Start-Process -FilePath $ASInstaller -ArgumentList "/S" -PassThru
+        Start-Sleep -Seconds 60
+        if (!$as.HasExited) { Stop-Process -Id $as.Id -Force }
+
+        Write-Output "`n--- Installing SDK Components via sdkmanager ---"
+        $sdkManager = "C:\Program Files\Android\Android Studio\cmdline-tools\latest\bin\sdkmanager.bat"
+        if (Test-Path $sdkManager) {
+          & $sdkManager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "emulator" "cmdline-tools;latest" --sdk_root="C:\Users\runneradmin\AppData\Local\Android\Sdk"
+        }
 
         Write-Output "`nApplications installed and shortcuts placed on desktop."
 
