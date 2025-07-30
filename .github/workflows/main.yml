@@ -50,39 +50,7 @@ jobs:
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-    - name: Install VS Code, Trae IDE, GitHub Desktop (on Desktop 2)
-      shell: powershell
-      run: |
-        $ErrorActionPreference = "Stop"
-        $vdeskExe = "${Env:ProgramFiles(x86)}\VDesk\vdesk.exe"
-        if (-not (Test-Path $vdeskExe)) {
-          $vdeskExe = "${Env:ProgramFiles}\VDesk\vdesk.exe"
-        }
-
-        if (-not (Test-Path $vdeskExe)) {
-          Write-Error "vdesk.exe not found!"
-        }
-
-        Write-Output "`n--- Installing Visual Studio Code ---"
-        $VSCodeUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
-        $VSCodeInstaller = "$env:TEMP\vscode_setup.exe"
-        Invoke-WebRequest -Uri $VSCodeUrl -OutFile $VSCodeInstaller
-        Start-Process -FilePath $vdeskExe -ArgumentList "/switch:2 /run:`"$VSCodeInstaller`" /VERYSILENT /NORESTART /MERGETASKS=!runcode" -Wait
-
-        Write-Output "`n--- Installing Trae IDE ---"
-        $TraeUrl = "https://lf-trae.toscdn.com/obj/trae-ai-cn/pkg/app/releases/stable/1.0.10283/win32/Trae-Setup-x64.exe"
-        $TraeInstaller = "$env:TEMP\TraeSetup.exe"
-        Invoke-WebRequest -Uri $TraeUrl -OutFile $TraeInstaller
-        Start-Process -FilePath $vdeskExe -ArgumentList "/switch:2 /run:`"$TraeInstaller`" /VERYSILENT /NORESTART" -Wait
-
-        Start-Sleep -Seconds 20
-
-        Write-Output "`n--- Installing GitHub Desktop ---"
-        $GHUrl = "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi"
-        $GHInstaller = "$env:TEMP\githubdesktop.msi"
-        Invoke-WebRequest -Uri $GHUrl -OutFile $GHInstaller
-        Start-Process -FilePath $vdeskExe -ArgumentList "/switch:2 /run:`"msiexec.exe`" /i `"$GHInstaller`" /quiet /norestart" -Wait
-
+    
     - name: Minimize All Windows
       shell: powershell
       run: |
