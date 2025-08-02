@@ -50,7 +50,6 @@ jobs:
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
         rundll32.exe user32.dll,UpdatePerUserSystemParameters
 
-    
     - name: Minimize All Windows
       shell: powershell
       run: |
@@ -58,28 +57,28 @@ jobs:
         Set-Content -Path $vbs -Value 'Set shell = CreateObject("Shell.Application") : shell.MinimizeAll'
         cscript.exe //nologo $vbs
 
-    - name: Start Serveo Tunnel and Keep Alive
+    - name: Start Localhost.run Tunnel and Keep Alive
       shell: bash
       run: |
-        echo "Starting Serveo SSH tunnel..."
+        echo "Starting localhost.run SSH tunnel..."
 
-        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net -N 2>&1 | tee serveo.log &
+        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
         SSH_PID=$!
 
         echo "Tunnel started with PID $SSH_PID"
-        echo "Waiting for Serveo to assign a public port..."
+        echo "Waiting for Localhost.run to assign a public port..."
 
-        while ! grep -q 'Forwarding TCP port' serveo.log; do
+        while ! grep -q 'connect to' tunnel.log; do
           sleep 1
         done
 
         while kill -0 $SSH_PID 2>/dev/null; do
-          PUBLIC_ADDR=$(grep 'Forwarding TCP port' serveo.log | tail -1 | sed -E 's/.*Forwarding TCP port ([0-9]+).*/serveo.net:\1/')
+          PUBLIC_ADDR=$(grep 'connect to' tunnel.log | tail -1 | sed -E 's/.*connect to (.+)/\1/')
           echo "Public RDP address: $PUBLIC_ADDR"
           sleep 30
         done
 
-        echo "Serveo tunnel closed."
+        echo "Tunnel closed."
 
     - name: Complete job
       run: echo "Job completed successfully."
