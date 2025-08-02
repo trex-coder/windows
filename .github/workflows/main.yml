@@ -60,9 +60,14 @@ jobs:
     - name: Start Localhost.run Tunnel and Keep Alive
       shell: bash
       run: |
-        echo "Starting localhost.run SSH tunnel..."
+        echo "Generating temporary SSH key..."
+        mkdir -p ~/.ssh
+        ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
 
-        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
+        echo "Starting localhost.run SSH tunnel..."
+        ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_rsa \
+            -R 0:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
         SSH_PID=$!
 
         echo "Tunnel started with PID $SSH_PID"
@@ -82,3 +87,4 @@ jobs:
 
     - name: Complete job
       run: echo "Job completed successfully."
+
