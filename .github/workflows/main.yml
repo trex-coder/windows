@@ -64,22 +64,21 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
 
-        echo "Starting localhost.run SSH tunnel..."
+        echo "Starting localhost.run SSH tunnel on port 5000..."
         ssh -o StrictHostKeyChecking=no \
             -i ~/.ssh/id_rsa \
-            -R 0:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
+            -R 5000:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
         SSH_PID=$!
 
         echo "Tunnel started with PID $SSH_PID"
-        echo "Waiting for Localhost.run to assign a public port..."
+        echo "Waiting for Localhost.run to confirm tunnel..."
 
-        while ! grep -q 'connect to' tunnel.log; do
+        while ! grep -q 'Allocated port' tunnel.log; do
           sleep 1
         done
 
         while kill -0 $SSH_PID 2>/dev/null; do
-          PUBLIC_ADDR=$(grep 'connect to' tunnel.log | tail -1 | sed -E 's/.*connect to (.+)/\1/')
-          echo "Public RDP address: $PUBLIC_ADDR"
+          echo "Public RDP address: ssh.localhost.run:5000"
           sleep 30
         done
 
@@ -87,4 +86,3 @@ jobs:
 
     - name: Complete job
       run: echo "Job completed successfully."
-
