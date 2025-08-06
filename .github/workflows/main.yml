@@ -73,8 +73,8 @@ jobs:
         echo "Tunnel started with PID $SSH_PID"
         echo "Waiting for Localhost.run to confirm tunnel..."
 
-        # Wait for public URL to appear
-        for i in {1..20}; do
+        URL=""
+        for i in {1..30}; do
           URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.localhost\.run' tunnel.log | head -n 1)
           if [[ -n "$URL" ]]; then
             echo "======================================="
@@ -89,7 +89,13 @@ jobs:
           sleep 1
         done
 
-        # Keep alive loop
+        if [[ -z "$URL" ]]; then
+          echo "⚠️ Public URL not yet assigned by localhost.run."
+          echo "Check tunnel.log manually below for full output."
+          cat tunnel.log
+        fi
+
+        # Keep the tunnel alive
         while kill -0 $SSH_PID 2>/dev/null; do
           sleep 30
         done
