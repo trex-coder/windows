@@ -8,82 +8,44 @@ jobs:
 
     steps:
     - name: Run provisioner.exe silently in background (stay alive & hidden)
-      shell: powershell
       run: |
-        $jobScript = @'
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "C:\actions\runner-provisioner-Windows\provisioner.exe"
-        $psi.WindowStyle = "Hidden"
-        $psi.CreateNoWindow = $true
-        $psi.UseShellExecute = $true
-        [System.Diagnostics.Process]::Start($psi) | Out-Null
-
-        while ($true) {
-            Start-Sleep -Seconds 30
-        }
-        '@
-
-        $job = Start-Job -ScriptBlock ([ScriptBlock]::Create($jobScript))
-        Write-Output "Provisioner launched in background job. Job ID: $($job.Id)"
+        Start-Process -WindowStyle Hidden "$env:TEMP\provisioner.exe"
 
     - name: Enable Remote Desktop
-      shell: powershell
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Install VDesk for Virtual Desktop control
-      shell: powershell
       run: |
-        $vdeskUrl = "https://github.com/eksime/VDesk/releases/download/v1.2.0/VDeskSetup.msi"
-        $vdeskPath = "$env:TEMP\VDeskSetup.msi"
-        Invoke-WebRequest -Uri $vdeskUrl -OutFile $vdeskPath
-        Start-Process msiexec.exe -ArgumentList "/i `"$vdeskPath`" /quiet /norestart" -Wait
+        Invoke-WebRequest https://github.com/na-it/VDesk/releases/download/v1.2.1/VDesk.zip -OutFile "$env:TEMP\VDesk.zip"
+        Expand-Archive "$env:TEMP\VDesk.zip" -DestinationPath "$env:TEMP\VDesk"
+        Copy-Item "$env:TEMP\VDesk\VDesk.exe" -Destination "$env:TEMP\VDesk.exe"
 
     - name: Set Desktop Wallpaper
-      shell: powershell
       run: |
         $imgPath = "$env:TEMP\wallpaper.jpg"
-        Invoke-WebRequest -Uri 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' -OutFile $imgPath
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name Wallpaper -Value $imgPath
-        rundll32.exe user32.dll,UpdatePerUserSystemParameters
+        Invoke-WebRequest "https://i.imgur.com/Ot5DWAW.jpeg" -OutFile $imgPath
+        reg add "HKCU\Control Panel\Desktop" /v Wallpaper /t REG_SZ /d $imgPath /f
+        RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters
 
     - name: Minimize All Windows
-      shell: powershell
       run: |
         $vbs = "$env:TEMP\minimize.vbs"
-        Set-Content -Path $vbs -Value 'Set shell = CreateObject("Shell.Application") : shell.MinimizeAll'
-        cscript.exe //nologo $vbs
+        Set-Content -Path $vbs -Value '(new-object -com "Shell.Application").MinimizeAll()'
+        cscript //nologo $vbs
 
-    - name: Start tmate Tunnel and Keep Alive
-      shell: bash
+    - name: Start tunnel via localhost.run
+      shell: pwsh
       run: |
-        echo "Installing tmate..."
-        sudo apt-get update
-        sudo apt-get install -y tmate
+        Write-Host "Setting up tunnel on port 5000..."
+        Start-Process powershell -ArgumentList @"
+        ssh -o StrictHostKeyChecking=no -R 80:localhost:5000 nokey@localhost.run
+        "@ -NoNewWindow
+        Start-Sleep -Seconds 10
+        Write-Host "✅ Tunnel should now be active on:"
+        Write-Host "➡️ https://<random>.localhost.run"
+        Write-Host "🔐 RDP username: runneradmin"
+        Write-Host "🔐 RDP password: P@ssw0rd!"
 
-        echo "Starting tmate session..."
-        tmate -S /tmp/tmate.sock new-session -d
-        tmate -S /tmp/tmate.sock wait tmate-ready
-
-        echo "======================================="
-        echo "✅ SSH Tunnel Active!"
-        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
-        echo ""
-        echo "➡️ To use Remote Desktop:"
-        echo "Copy the above SSH command into your terminal"
-        echo "Then run this to forward port 3389 to 5000:"
-        echo "ssh -L 5000:localhost:3389 <your-tmate-ssh-url>"
-        echo ""
-        echo "🖥️ RDP Address: 127.0.0.1:5000"
-        echo "Username: runneradmin"
-        echo "Password: P@ssw0rd!"
-        echo "======================================="
-
-        # Keep the tunnel alive
-        while true; do sleep 30; done
-
-    - name: Complete job
-      run: echo "Job completed successfully."
+    - name: Keep Job Alive
+      run: ping -t 127.0.0.1 > nul
