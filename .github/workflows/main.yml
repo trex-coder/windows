@@ -73,17 +73,23 @@ jobs:
         echo "Tunnel started with PID $SSH_PID"
         echo "Waiting for Localhost.run to confirm tunnel..."
 
-        until grep -q 'Allocated port' tunnel.log; do
+        # Wait for public URL to appear
+        for i in {1..20}; do
+          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.localhost\.run' tunnel.log | head -n 1)
+          if [[ -n "$URL" ]]; then
+            echo "======================================="
+            echo "✅ Public RDP Tunnel URL:"
+            echo "$URL:5000"
+            echo "Use this in your RDP client."
+            echo "Username: runneradmin"
+            echo "Password: P@ssw0rd!"
+            echo "======================================="
+            break
+          fi
           sleep 1
         done
 
-        PUBLIC_URL=$(grep 'Allocated port' tunnel.log | grep -oE 'https://[a-zA-Z0-9.-]+')
-        echo "======================================="
-        echo "✅ Public RDP Tunnel URL:"
-        echo "$PUBLIC_URL"
-        echo "Use RDP client to connect to: localhost:5000 via $PUBLIC_URL"
-        echo "======================================="
-
+        # Keep alive loop
         while kill -0 $SSH_PID 2>/dev/null; do
           sleep 30
         done
