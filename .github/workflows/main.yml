@@ -57,50 +57,33 @@ jobs:
         Set-Content -Path $vbs -Value 'Set shell = CreateObject("Shell.Application") : shell.MinimizeAll'
         cscript.exe //nologo $vbs
 
-    - name: Start Localhost.run Tunnel and Keep Alive
+    - name: Start tmate Tunnel and Keep Alive
       shell: bash
       run: |
-        echo "Generating temporary SSH key..."
-        mkdir -p ~/.ssh
-        ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
+        echo "Installing tmate..."
+        sudo apt-get update
+        sudo apt-get install -y tmate
 
-        echo "Starting localhost.run SSH tunnel on port 5000..."
-        ssh -o StrictHostKeyChecking=no \
-            -i ~/.ssh/id_rsa \
-            -R 5000:localhost:3389 ssh.localhost.run -N 2>&1 | tee tunnel.log &
-        SSH_PID=$!
+        echo "Starting tmate session..."
+        tmate -S /tmp/tmate.sock new-session -d
+        tmate -S /tmp/tmate.sock wait tmate-ready
 
-        echo "Tunnel started with PID $SSH_PID"
-        echo "Waiting for Localhost.run to confirm tunnel..."
-
-        URL=""
-        for i in {1..30}; do
-          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.localhost\.run' tunnel.log | head -n 1)
-          if [[ -n "$URL" ]]; then
-            echo "======================================="
-            echo "✅ Public RDP Tunnel URL:"
-            echo "$URL:5000"
-            echo "Use this in your RDP client."
-            echo "Username: runneradmin"
-            echo "Password: P@ssw0rd!"
-            echo "======================================="
-            break
-          fi
-          sleep 1
-        done
-
-        if [[ -z "$URL" ]]; then
-          echo "⚠️ Public URL not yet assigned by localhost.run."
-          echo "Check tunnel.log manually below for full output."
-          cat tunnel.log
-        fi
+        echo "======================================="
+        echo "✅ SSH Tunnel Active!"
+        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+        echo ""
+        echo "➡️ To use Remote Desktop:"
+        echo "Copy the above SSH command into your terminal"
+        echo "Then run this to forward port 3389 to 5000:"
+        echo "ssh -L 5000:localhost:3389 <your-tmate-ssh-url>"
+        echo ""
+        echo "🖥️ RDP Address: 127.0.0.1:5000"
+        echo "Username: runneradmin"
+        echo "Password: P@ssw0rd!"
+        echo "======================================="
 
         # Keep the tunnel alive
-        while kill -0 $SSH_PID 2>/dev/null; do
-          sleep 30
-        done
-
-        echo "Tunnel closed."
+        while true; do sleep 30; done
 
     - name: Complete job
       run: echo "Job completed successfully."
